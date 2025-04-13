@@ -8,7 +8,9 @@ from flask_cors import CORS  # Import CORS
 
 # Tạo Flask app
 app = Flask(__name__)
-CORS(app)  # Định cấu hình CORS cho toàn bộ app
+# Bạn có thể thử cấu hình chi tiết hơn:
+CORS(app, resources={r"/predict": {"origins": "*"}})
+  # Định cấu hình CORS cho toàn bộ app
 
 # Đường dẫn đến các phần của file nén và file mô hình sau khi giải nén
 COMPRESSED_FILE_PARTS = [
@@ -101,11 +103,13 @@ def predict():
         img_array = np.expand_dims(img_array, axis=0)
 
         # Thực hiện dự đoán
+        print("Ảnh nhận được có shape:", img_array.shape)
         predictions = model.predict(img_array)
         print("Kết quả dự đoán:", predictions)
 
         return jsonify({'predictions': predictions.tolist()})
 
+        
     except Exception as e:
         print(f"Lỗi trong route /predict: {str(e)}")
         return jsonify({'error': f'Internal Server Error: {str(e)}'}), 500
