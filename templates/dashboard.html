@@ -21,10 +21,17 @@
     h1 {
       color: #2e7d32;
     }
+    .file-upload-container {
+      margin-top: 20px;
+    }
     #result-message {
       margin-top: 20px;
       font-size: 1.5rem;
       text-align: center;
+    }
+    .contact {
+      margin-top: 30px;
+      font-size: 14px;
     }
   </style>
 </head>
@@ -33,15 +40,25 @@
     <h1>Chào mừng đến với Dashboard - Phân tích Hồ sơ EMR</h1>
     <p>Hãy chọn ảnh để phân tích và xem kết quả phân loại "Nodule" hoặc "Non-Nodule".</p>
 
-    <input type="file" id="upload" accept="image/*">
-    <button id="analyze-button">Phân tích</button>
+    <div class="file-upload-container">
+      <h2>Chọn ảnh để phân tích</h2>
+      <input type="file" id="upload" accept="image/*">
+      <button id="analyze-button">Phân tích</button>
+      <div id="result-message">
+        <!-- Kết quả phân tích sẽ hiển thị ở đây -->
+      </div>
+    </div>
 
-    <div id="result-message">
-      <!-- Kết quả phân tích sẽ hiển thị ở đây -->
+    <div class="contact">
+      <p><strong>Liên hệ:</strong><br>
+      Công ty TNHH MTV Minh Trí và những người bạn Marie Curie<br>
+      159 Nam Kỳ Khởi Nghĩa, Quận 3, Tp. Hồ Chí Minh<br>
+      Lại Nguyễn Minh Trí - <a href="mailto:laingminhtri@gmail.com">laingminhtri@gmail.com</a> - 0908083566</p>
     </div>
   </div>
 
-  <script>
+<script>
+    // Hàm upload file và gửi đến backend Flask
     document.getElementById('analyze-button').addEventListener('click', async function () {
       const fileInput = document.getElementById('upload');
       const file = fileInput.files[0];
@@ -53,28 +70,34 @@
       const formData = new FormData();
       formData.append('image', file);
 
+      // Hiển thị thông báo đang xử lý
       const resultMessage = document.getElementById('result-message');
       resultMessage.innerText = "Đang phân tích...";
 
-      try {
-        const response = await fetch('https://emr-analyzer.onrender.com/predict', {
+     try {
+        const response = await fetch('https://emr-detector.onrender.com/predict', {
           method: 'POST',
           body: formData,
         });
 
-        if (response.ok) {
-          const result = await response.json();
-          const predictions = result.predictions[0];
-          const classification = predictions > 0.5 ? 'Nodule' : 'Non-Nodule';
-          resultMessage.innerText = `Kết quả dự đoán: ${classification}`;
-        } else {
-          const errorText = await response.text();
-          resultMessage.innerText = `Lỗi từ server: ${errorText}`;
-        }
-      } catch (err) {
-        resultMessage.innerText = `Lỗi: ${err.message}`;
+        const contentType = response.headers.get('content-type');
+
+      if (response.ok && contentType && contentType.includes('application/json')) {
+        const result = await response.json();
+        console.log('Kết quả từ server:', result);  // Thêm log kiểm tra kết quả
+        const predictions = result.predictions[0];
+        const classification = predictions > 0.5 ? 'Nodule' : 'Non-Nodule';
+        resultMessage.innerText = `Kết quả dự đoán: ${classification}`;
+      } else {
+          const errorText = await response.text();  // HTML lỗi (nếu có)
+          console.error('Server response is not JSON:', errorText);
+          resultMessage.innerText = `Lỗi: Server trả về dữ liệu không hợp lệ.\n${errorText}`;
       }
-    });
-  </script>
+    } catch (err) {
+      console.error('Lỗi khi gửi yêu cầu đến server:', err);  // Thêm log kiểm tra lỗi
+      resultMessage.innerText = `Lỗi: ${err.message}`;
+    }
+  });
+</script>
 </body>
 </html>
