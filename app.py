@@ -7,6 +7,11 @@ from PIL import Image
 import gdown
 import py7zr  # Thêm thư viện giải nén
 
+# === Cấu hình logging ===
+import logging
+logging.basicConfig(level=logging.DEBUG, filename="server.log",
+                    format="%(asctime)s - %(levelname)s - %(message)s")
+
 app = Flask(__name__)
 CORS(app)
 
@@ -20,17 +25,21 @@ MODEL_EXTRACTED_PATH = os.path.join(MODEL_DIR, "best_weights_model.keras")
 # === Tải model từ Google Drive nếu chưa có ===
 def download_and_extract_model():
     if not os.path.exists(MODEL_EXTRACTED_PATH):
-        print("🧠 Model chưa tồn tại, đang tải từ Google Drive...")
+        logging.info("🧠 Model chưa tồn tại, đang tải từ Google Drive...")
+        # print("🧠 Model chưa tồn tại, đang tải từ Google Drive...")
         os.makedirs(MODEL_DIR, exist_ok=True)
         url = f"https://drive.google.com/uc?id={MODEL_FILE_ID}"
         gdown.download(url, MODEL_PATH_7Z, quiet=False)
-        print("✅ Tải model thành công!")
+        logging.info("✅ Tải model thành công!")
+        # print("✅ Tải model thành công!")
 
         # Giải nén file .7z
-        print("📦 Đang giải nén model...")
+        logging.info("📦 Đang giải nén model...")
+        # print("📦 Đang giải nén model...")
         with py7zr.SevenZipFile(MODEL_PATH_7Z, mode='r') as archive:
             archive.extractall(MODEL_DIR)
-        print("✅ Giải nén thành công!")
+        logging.info("✅ Giải nén thành công!")
+        # print("✅ Giải nén thành công!")
 
 # === Tải model ===
 model = None
@@ -39,9 +48,11 @@ def load_model():
     global model
     if model is None:
         download_and_extract_model()
-        print("📦 Đang tải model vào bộ nhớ...")
+        logging.info("📦 Đang tải model vào bộ nhớ...")
+        # print("📦 Đang tải model vào bộ nhớ...")
         model = tf.keras.models.load_model(MODEL_EXTRACTED_PATH)
-        print("✅ Mô hình đã được load!")
+        logging.info("✅ Mô hình đã được load!")
+        # print("✅ Mô hình đã được load!")
 
 # === ROUTES ===
 @app.route('/')
@@ -58,6 +69,7 @@ def predict():
         load_model()
 
         if 'image' not in request.files:
+            logging.warning("Không có file ảnh được gửi!")
             return jsonify({'error': 'Không có file ảnh được gửi!'}), 400
 
         file = request.files['image']
@@ -72,11 +84,13 @@ def predict():
 
         # Dự đoán
         predictions = model.predict(img_array)
-        print("📊 Kết quả dự đoán:", predictions)
+        logging.info(f"📊 Kết quả dự đoán: {predictions}")
+        # print("📊 Kết quả dự đoán:", predictions)
 
         return jsonify({'predictions': predictions.tolist()})
 
     except Exception as e:
+        logging.error(f"Lỗi trong route /predict: {str(e)}")
         print(f"❌ Lỗi trong /predict: {str(e)}")
         return jsonify({'error': f'Internal Server Error: {str(e)}'}), 500
 
