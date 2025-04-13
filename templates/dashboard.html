@@ -74,30 +74,28 @@
       const resultMessage = document.getElementById('result-message');
       resultMessage.innerText = "Đang phân tích...";
 
-     try {
-        const response = await fetch('https://emr-detector.onrender.com/predict', {
+      try {
+        const response = await fetch('/predict', {  // Sửa endpoint thành `/predict`
           method: 'POST',
           body: formData,
         });
 
-        const contentType = response.headers.get('content-type');
-
-      if (response.ok && contentType && contentType.includes('application/json')) {
-        const result = await response.json();
-        console.log('Kết quả từ server:', result);  // Thêm log kiểm tra kết quả
-        const predictions = result.predictions[0];
-        const classification = predictions > 0.5 ? 'Nodule' : 'Non-Nodule';
-        resultMessage.innerText = `Kết quả dự đoán: ${classification}`;
-      } else {
-          const errorText = await response.text();  // HTML lỗi (nếu có)
-          console.error('Server response is not JSON:', errorText);
-          resultMessage.innerText = `Lỗi: Server trả về dữ liệu không hợp lệ.\n${errorText}`;
+        if (response.ok) {
+          const result = await response.json();
+          console.log('Kết quả từ server:', result);
+          const predictions = result.predictions[0];
+          const classification = predictions > 0.5 ? 'Nodule' : 'Non-Nodule';
+          resultMessage.innerText = `Kết quả dự đoán: ${classification}`;
+        } else {
+          const errorText = await response.text();
+          console.error('Server response error:', errorText);
+          resultMessage.innerText = `Lỗi từ server: ${errorText}`;
+        }
+      } catch (err) {
+        console.error('Lỗi khi gửi yêu cầu đến server:', err);
+        resultMessage.innerText = `Lỗi: ${err.message}`;
       }
-    } catch (err) {
-      console.error('Lỗi khi gửi yêu cầu đến server:', err);  // Thêm log kiểm tra lỗi
-      resultMessage.innerText = `Lỗi: ${err.message}`;
-    }
-  });
+    });
 </script>
 </body>
 </html>
