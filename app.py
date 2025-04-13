@@ -5,7 +5,7 @@ from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
 from PIL import Image
 import gdown
-import py7zr  # Thêm thư viện giải nén
+import py7zr  # Thư viện giải nén
 
 # === Cấu hình logging ===
 import logging
@@ -16,7 +16,7 @@ app = Flask(__name__)
 CORS(app)
 
 # === Config ===
-MODEL_FILE_ID = "1EpAgsWQSXi7CsUO8mEQDGAJyjdfN0T6n"  # 👈 Thay bằng ID của bạn
+MODEL_FILE_ID = "1EpAgsWQSXi7CsUO8mEQDGAJyjdfN0T6n"  # Thay bằng ID của bạn
 MODEL_FILE_NAME = "best_weights_model.7z"
 MODEL_DIR = "./models"
 MODEL_PATH_7Z = os.path.join(MODEL_DIR, MODEL_FILE_NAME)
@@ -26,20 +26,16 @@ MODEL_EXTRACTED_PATH = os.path.join(MODEL_DIR, "best_weights_model.keras")
 def download_and_extract_model():
     if not os.path.exists(MODEL_EXTRACTED_PATH):
         logging.info("🧠 Model chưa tồn tại, đang tải từ Google Drive...")
-        # print("🧠 Model chưa tồn tại, đang tải từ Google Drive...")
         os.makedirs(MODEL_DIR, exist_ok=True)
         url = f"https://drive.google.com/uc?id={MODEL_FILE_ID}"
         gdown.download(url, MODEL_PATH_7Z, quiet=False)
         logging.info("✅ Tải model thành công!")
-        # print("✅ Tải model thành công!")
 
         # Giải nén file .7z
         logging.info("📦 Đang giải nén model...")
-        # print("📦 Đang giải nén model...")
         with py7zr.SevenZipFile(MODEL_PATH_7Z, mode='r') as archive:
             archive.extractall(MODEL_DIR)
         logging.info("✅ Giải nén thành công!")
-        # print("✅ Giải nén thành công!")
 
 # === Tải model ===
 model = None
@@ -49,10 +45,8 @@ def load_model():
     if model is None:
         download_and_extract_model()
         logging.info("📦 Đang tải model vào bộ nhớ...")
-        # print("📦 Đang tải model vào bộ nhớ...")
         model = tf.keras.models.load_model(MODEL_EXTRACTED_PATH)
         logging.info("✅ Mô hình đã được load!")
-        # print("✅ Mô hình đã được load!")
 
 # === ROUTES ===
 @app.route('/')
@@ -85,13 +79,11 @@ def predict():
         # Dự đoán
         predictions = model.predict(img_array)
         logging.info(f"📊 Kết quả dự đoán: {predictions}")
-        # print("📊 Kết quả dự đoán:", predictions)
 
         return jsonify({'predictions': predictions.tolist()})
 
     except Exception as e:
         logging.error(f"Lỗi trong route /predict: {str(e)}")
-        print(f"❌ Lỗi trong /predict: {str(e)}")
         return jsonify({'error': f'Internal Server Error: {str(e)}'}), 500
 
 # === Chạy server (chỉ khi chạy cục bộ) ===
