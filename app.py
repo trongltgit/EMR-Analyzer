@@ -5,24 +5,32 @@ from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
 from PIL import Image
 import gdown
+import py7zr  # Thêm thư viện giải nén
 
 app = Flask(__name__)
 CORS(app)
 
 # === Config ===
 MODEL_FILE_ID = "1EpAgsWQSXi7CsUO8mEQDGAJyjdfN0T6n"  # 👈 Thay bằng ID của bạn
-MODEL_FILE_NAME = "best_weights_model.keras"
+MODEL_FILE_NAME = "best_weights_model.7z"
 MODEL_DIR = "./models"
-MODEL_PATH = os.path.join(MODEL_DIR, MODEL_FILE_NAME)
+MODEL_PATH_7Z = os.path.join(MODEL_DIR, MODEL_FILE_NAME)
+MODEL_EXTRACTED_PATH = os.path.join(MODEL_DIR, "best_weights_model.keras")
 
 # === Tải model từ Google Drive nếu chưa có ===
-def download_model_if_needed():
-    if not os.path.exists(MODEL_PATH):
+def download_and_extract_model():
+    if not os.path.exists(MODEL_EXTRACTED_PATH):
         print("🧠 Model chưa tồn tại, đang tải từ Google Drive...")
         os.makedirs(MODEL_DIR, exist_ok=True)
         url = f"https://drive.google.com/uc?id={MODEL_FILE_ID}"
-        gdown.download(url, MODEL_PATH, quiet=False)
+        gdown.download(url, MODEL_PATH_7Z, quiet=False)
         print("✅ Tải model thành công!")
+
+        # Giải nén file .7z
+        print("📦 Đang giải nén model...")
+        with py7zr.SevenZipFile(MODEL_PATH_7Z, mode='r') as archive:
+            archive.extractall(MODEL_DIR)
+        print("✅ Giải nén thành công!")
 
 # === Tải model ===
 model = None
@@ -30,9 +38,9 @@ model = None
 def load_model():
     global model
     if model is None:
-        download_model_if_needed()
+        download_and_extract_model()
         print("📦 Đang tải model vào bộ nhớ...")
-        model = tf.keras.models.load_model(MODEL_PATH)
+        model = tf.keras.models.load_model(MODEL_EXTRACTED_PATH)
         print("✅ Mô hình đã được load!")
 
 # === ROUTES ===
@@ -56,11 +64,13 @@ def predict():
         if file.filename == '':
             return jsonify({'error': 'Tên file rỗng!'}), 400
 
+        # Xử lý ảnh
         image = Image.open(file).convert('RGB')
         image = image.resize((224, 224))
         img_array = np.array(image) / 255.0
         img_array = np.expand_dims(img_array, axis=0)
 
+        # Dự đoán
         predictions = model.predict(img_array)
         print("📊 Kết quả dự đoán:", predictions)
 
