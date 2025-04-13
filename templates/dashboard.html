@@ -67,6 +67,24 @@
         return;
       }
 
+
+
+      document.getElementById("submitButton").addEventListener("click", function() {
+       const API_URL = "https://emr-analyzer.onrender.com/predict"; // Thay bằng địa chỉ backend thực tế
+       const formData = new FormData();
+       const fileInput = document.getElementById("fileInput");
+
+       formData.append("image", fileInput.files[0]);
+
+        fetch(API_URL, {
+          method: "POST",
+          body: formData,
+      })
+      .then(response => response.json())
+      .then(data => console.log(data)) // Xử lý dữ liệu trả về từ backend
+      .catch(error => console.error("Error:", error)); // Xử lý lỗi
+     });
+
       const formData = new FormData();
       formData.append('image', file);
 
