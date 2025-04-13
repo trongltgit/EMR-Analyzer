@@ -57,7 +57,7 @@
     </div>
   </div>
 
-  <script>
+<script>
     // Hàm upload file và gửi đến backend Flask
     document.getElementById('analyze-button').addEventListener('click', async function () {
       const fileInput = document.getElementById('upload');
@@ -97,6 +97,7 @@
       console.error('Lỗi khi gửi yêu cầu đến server:', err);  // Thêm log kiểm tra lỗi
       resultMessage.innerText = `Lỗi: ${err.message}`;
     }
-    </script>
+  });
+</script>
 </body>
 </html>
