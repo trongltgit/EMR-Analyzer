@@ -4,51 +4,24 @@
   <meta charset="UTF-8">
   <title>Dashboard - Phân tích hồ sơ EMR</title>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #e8f5e9;
-      margin: 0;
-      padding: 0;
-    }
-    .container {
-      max-width: 700px;
-      margin: 50px auto;
-      background: #fff;
-      padding: 30px;
-      border-radius: 10px;
-      box-shadow: 0 0 20px rgba(0,0,0,0.1);
-    }
-    h1 {
-      color: #2e7d32;
-    }
-    .file-upload-container {
-      margin-top: 20px;
-    }
-    #result-message {
-      margin-top: 20px;
-      font-size: 1.5rem;
-      text-align: center;
-    }
-    .contact {
-      margin-top: 30px;
-      font-size: 14px;
-    }
+    body { font-family: Arial, sans-serif; background: #e8f5e9; margin: 0; padding: 0; }
+    .container { max-width: 700px; margin: 50px auto; background: #fff; padding: 30px; border-radius: 10px; box-shadow: 0 0 20px rgba(0,0,0,0.1); }
+    h1 { color: #2e7d32; }
+    .file-upload-container { margin-top: 20px; }
+    #result-message { margin-top: 20px; font-size: 1.5rem; text-align: center; }
+    .contact { margin-top: 30px; font-size: 14px; }
   </style>
 </head>
 <body>
   <div class="container">
     <h1>Chào mừng đến với Dashboard - Phân tích Hồ sơ EMR</h1>
     <p>Hãy chọn ảnh để phân tích và xem kết quả phân loại "Nodule" hoặc "Non-Nodule".</p>
-
     <div class="file-upload-container">
       <h2>Chọn ảnh để phân tích</h2>
       <input type="file" id="upload" accept="image/*">
       <button id="analyze-button">Phân tích</button>
-      <div id="result-message">
-        <!-- Kết quả phân tích sẽ hiển thị ở đây -->
-      </div>
+      <div id="result-message"></div>
     </div>
-
     <div class="contact">
       <p><strong>Liên hệ:</strong><br>
       Công ty TNHH MTV Minh Trí và những người bạn Marie Curie<br>
@@ -56,46 +29,34 @@
       Lại Nguyễn Minh Trí - <a href="mailto:laingminhtri@gmail.com">laingminhtri@gmail.com</a> - 0908083566</p>
     </div>
   </div>
-
 <script>
-    document.getElementById('analyze-button').addEventListener('click', async function () {
-      const fileInput = document.getElementById('upload');
-      const file = fileInput.files[0];
-      if (!file) {
-        alert('Vui lòng chọn một file!');
-        return;
+  document.getElementById('analyze-button').addEventListener('click', async function () {
+    const fileInput = document.getElementById('upload');
+    const file = fileInput.files[0];
+    if (!file) {
+      alert('Vui lòng chọn một file!');
+      return;
+    }
+    const formData = new FormData();
+    formData.append('image', file);
+    const resultMessage = document.getElementById('result-message');
+    resultMessage.innerText = "Đang phân tích...";
+    try {
+      const response = await fetch('/predict', { method: 'POST', body: formData });
+      const contentType = response.headers.get('content-type');
+      if (response.ok && contentType && contentType.includes('application/json')) {
+        const result = await response.json();
+        const predictions = result.predictions[0];
+        const classification = predictions > 0.5 ? 'Nodule' : 'Non-Nodule';
+        resultMessage.innerText = `Kết quả dự đoán: ${classification}`;
+      } else {
+        const errorText = await response.text();
+        resultMessage.innerText = `Lỗi: Server trả về dữ liệu không hợp lệ.\n${errorText}`;
       }
-
-      const formData = new FormData();
-      formData.append('image', file);
-      const resultMessage = document.getElementById('result-message');
-      resultMessage.innerText = "Đang phân tích...";
-
-      try {
-        // Sử dụng URL tương đối để phù hợp với host hiện tại
-        const response = await fetch('/predict', {
-          method: 'POST',
-          body: formData,
-        });
-
-        const contentType = response.headers.get('content-type');
-
-        if (response.ok && contentType && contentType.includes('application/json')) {
-          const result = await response.json();
-          console.log('Kết quả từ server:', result);
-          const predictions = result.predictions[0];
-          const classification = predictions > 0.5 ? 'Nodule' : 'Non-Nodule';
-          resultMessage.innerText = `Kết quả dự đoán: ${classification}`;
-        } else {
-          const errorText = await response.text();
-          console.error('Server response is not JSON:', errorText);
-          resultMessage.innerText = `Lỗi: Server trả về dữ liệu không hợp lệ.\n${errorText}`;
-        }
-      } catch (err) {
-        console.error('Lỗi khi gửi yêu cầu đến server:', err);
-        resultMessage.innerText = `Lỗi: ${err.message}`;
-      }
-    });
+    } catch (err) {
+      resultMessage.innerText = `Lỗi: ${err.message}`;
+    }
+  });
 </script>
 </body>
 </html>
