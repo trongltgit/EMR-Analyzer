@@ -5,18 +5,17 @@ from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
 from PIL import Image
 import gdown
-import py7zr  # Thư viện giải nén
+import py7zr
 import logging
 
-# Cấu hình logging
 logging.basicConfig(level=logging.DEBUG, filename="server.log",
                     format="%(asctime)s - %(levelname)s - %(message)s")
 
 app = Flask(__name__)
 CORS(app)
 
-# Cấu hình model
-MODEL_FILE_ID = "1EpAgsWQSXi7CsUO8mEQDGAJyjdfN0T6n"  # Thay bằng ID của bạn
+# Config model
+MODEL_FILE_ID = "1EpAgsWQSXi7CsUO8mEQDGAJyjdfN0T6n"
 MODEL_FILE_NAME = "best_weights_model.7z"
 MODEL_DIR = "./models"
 MODEL_PATH_7Z = os.path.join(MODEL_DIR, MODEL_FILE_NAME)
@@ -38,10 +37,22 @@ model = None
 def load_model():
     global model
     if model is None:
-        download_and_extract_model()
-        logging.info("📦 Đang tải model vào bộ nhớ...")
-        model = tf.keras.models.load_model(MODEL_EXTRACTED_PATH)
-        logging.info("✅ Mô hình đã được load!")
+        try:
+            download_and_extract_model()
+            logging.info("📦 Đang tải model vào bộ nhớ...")
+            model = tf.keras.models.load_model(MODEL_EXTRACTED_PATH)
+            logging.info("✅ Mô hình đã được load!")
+        except Exception as e:
+            logging.error(f"Lỗi khi tải model: {str(e)}")
+            raise
+
+# Preload model khi khởi động server (nếu có thể)
+with app.app_context():
+    try:
+        load_model()
+        logging.info("✅ Mô hình đã được preload!")
+    except Exception as e:
+        logging.error(f"Lỗi preload model: {str(e)}")
 
 @app.route('/')
 def home():
@@ -54,7 +65,10 @@ def dashboard():
 @app.route('/predict', methods=['POST'])
 def predict():
     try:
-        load_model()
+        # Nếu model không được preload thành công, thử tải lại
+        if model is None:
+            load_model()
+            
         if 'image' not in request.files:
             logging.warning("Không có file ảnh được gửi!")
             return jsonify({'error': 'Không có file ảnh được gửi!'}), 400
