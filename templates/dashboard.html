@@ -42,7 +42,7 @@
     const resultMessage = document.getElementById('result-message');
     resultMessage.innerText = "Đang phân tích...";
     try {
-      const response = await fetch('/predict', { method: 'POST', body: formData });
+      const response = await fetch('https://emr-analyzer.onrender.com/predict', { method: 'POST', body: formData });
       const contentType = response.headers.get('content-type');
       if (response.ok && contentType && contentType.includes('application/json')) {
         const result = await response.json();
