@@ -6,23 +6,22 @@ from flask_cors import CORS
 from PIL import Image
 import gdown
 import py7zr  # Thư viện giải nén
-
-# === Cấu hình logging ===
 import logging
+
+# Cấu hình logging
 logging.basicConfig(level=logging.DEBUG, filename="server.log",
                     format="%(asctime)s - %(levelname)s - %(message)s")
 
 app = Flask(__name__)
 CORS(app)
 
-# === Config ===
+# Cấu hình model
 MODEL_FILE_ID = "1EpAgsWQSXi7CsUO8mEQDGAJyjdfN0T6n"  # Thay bằng ID của bạn
 MODEL_FILE_NAME = "best_weights_model.7z"
 MODEL_DIR = "./models"
 MODEL_PATH_7Z = os.path.join(MODEL_DIR, MODEL_FILE_NAME)
 MODEL_EXTRACTED_PATH = os.path.join(MODEL_DIR, "best_weights_model.keras")
 
-# === Tải model từ Google Drive nếu chưa có ===
 def download_and_extract_model():
     if not os.path.exists(MODEL_EXTRACTED_PATH):
         logging.info("🧠 Model chưa tồn tại, đang tải từ Google Drive...")
@@ -30,16 +29,12 @@ def download_and_extract_model():
         url = f"https://drive.google.com/uc?id={MODEL_FILE_ID}"
         gdown.download(url, MODEL_PATH_7Z, quiet=False)
         logging.info("✅ Tải model thành công!")
-
-        # Giải nén file .7z
         logging.info("📦 Đang giải nén model...")
         with py7zr.SevenZipFile(MODEL_PATH_7Z, mode='r') as archive:
             archive.extractall(MODEL_DIR)
         logging.info("✅ Giải nén thành công!")
 
-# === Tải model ===
 model = None
-
 def load_model():
     global model
     if model is None:
@@ -48,7 +43,6 @@ def load_model():
         model = tf.keras.models.load_model(MODEL_EXTRACTED_PATH)
         logging.info("✅ Mô hình đã được load!")
 
-# === ROUTES ===
 @app.route('/')
 def home():
     return render_template('index.html')
@@ -61,7 +55,6 @@ def dashboard():
 def predict():
     try:
         load_model()
-
         if 'image' not in request.files:
             logging.warning("Không có file ảnh được gửi!")
             return jsonify({'error': 'Không có file ảnh được gửi!'}), 400
@@ -70,22 +63,17 @@ def predict():
         if file.filename == '':
             return jsonify({'error': 'Tên file rỗng!'}), 400
 
-        # Xử lý ảnh
         image = Image.open(file).convert('RGB')
         image = image.resize((224, 224))
         img_array = np.array(image) / 255.0
         img_array = np.expand_dims(img_array, axis=0)
 
-        # Dự đoán
         predictions = model.predict(img_array)
         logging.info(f"📊 Kết quả dự đoán: {predictions}")
-
         return jsonify({'predictions': predictions.tolist()})
-
     except Exception as e:
         logging.error(f"Lỗi trong route /predict: {str(e)}")
         return jsonify({'error': f'Internal Server Error: {str(e)}'}), 500
 
-# === Chạy server (chỉ khi chạy cục bộ) ===
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
