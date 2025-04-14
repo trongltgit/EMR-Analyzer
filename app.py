@@ -87,7 +87,7 @@ def predict():
         return jsonify({'predictions': predictions.tolist()})
     except Exception as e:
         logging.error(f"Lỗi trong route /predict: {str(e)}")
-        return jsonify({'error': 'Internal Server Error', 'details': str(e)}), 500
+        return jsonify({'error': f'Internal Server Error: {str(e)}'}), 500
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
