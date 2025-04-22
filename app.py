@@ -4,7 +4,6 @@ import tensorflow as tf
 from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
 from PIL import Image
-import gdown
 import py7zr
 import logging
 
@@ -15,21 +14,30 @@ app = Flask(__name__)
 CORS(app)
 
 # Config model
-MODEL_FILE_ID = "1EpAgsWQSXi7CsUO8mEQDGAJyjdfN0T6n"
-MODEL_FILE_NAME = "best_weights_model.7z"
 MODEL_DIR = "./models"
-MODEL_PATH_7Z = os.path.join(MODEL_DIR, MODEL_FILE_NAME)
+MODEL_PARTS = [
+    os.path.join(MODEL_DIR, "best_weights_model.7z.001"),
+    os.path.join(MODEL_DIR, "best_weights_model.7z.002"),
+    os.path.join(MODEL_DIR, "best_weights_model.7z.003"),
+    os.path.join(MODEL_DIR, "best_weights_model.7z.004")
+]
+MODEL_PATH_7Z = os.path.join(MODEL_DIR, "best_weights_model.7z")
 MODEL_EXTRACTED_PATH = os.path.join(MODEL_DIR, "best_weights_model.keras")
 
-def download_and_extract_model():
+def merge_model_parts():
+    if not os.path.exists(MODEL_PATH_7Z):
+        logging.info("📦 Đang ghép các file .7z...")
+        with open(MODEL_PATH_7Z, "wb") as output_file:
+            for part in MODEL_PARTS:
+                if not os.path.exists(part):
+                    logging.error(f"File {part} không tồn tại!")
+                    raise FileNotFoundError(f"File {part} không tồn tại!")
+                with open(part, "rb") as part_file:
+                    output_file.write(part_file.read())
+        logging.info("✅ Ghép file .7z thành công!")
+
+def extract_model():
     if not os.path.exists(MODEL_EXTRACTED_PATH):
-        logging.info("🧠 Model chưa tồn tại, đang tải từ Google Drive...")
-        os.makedirs(MODEL_DIR, exist_ok=True)
-        url = f"https://drive.google.com/uc?id={MODEL_FILE_ID}"
-        # Kiểm tra nếu file chưa tồn tại hoặc tải lại nếu cần
-        if not os.path.exists(MODEL_PATH_7Z):
-            gdown.download(url, MODEL_PATH_7Z, quiet=False)
-            logging.info("✅ Tải model thành công!")
         logging.info("📦 Đang giải nén model...")
         with py7zr.SevenZipFile(MODEL_PATH_7Z, mode='r') as archive:
             archive.extractall(MODEL_DIR)
@@ -40,7 +48,8 @@ def load_model():
     global model
     if model is None:
         try:
-            download_and_extract_model()
+            merge_model_parts()
+            extract_model()
             logging.info("📦 Đang tải model vào bộ nhớ...")
             model = tf.keras.models.load_model(MODEL_EXTRACTED_PATH)
             logging.info("✅ Mô hình đã được load!")
