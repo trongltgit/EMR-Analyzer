@@ -26,8 +26,10 @@ def download_and_extract_model():
         logging.info("🧠 Model chưa tồn tại, đang tải từ Google Drive...")
         os.makedirs(MODEL_DIR, exist_ok=True)
         url = f"https://drive.google.com/uc?id={MODEL_FILE_ID}"
-        gdown.download(url, MODEL_PATH_7Z, quiet=False)
-        logging.info("✅ Tải model thành công!")
+        # Kiểm tra nếu file chưa tồn tại hoặc tải lại nếu cần
+        if not os.path.exists(MODEL_PATH_7Z):
+            gdown.download(url, MODEL_PATH_7Z, quiet=False)
+            logging.info("✅ Tải model thành công!")
         logging.info("📦 Đang giải nén model...")
         with py7zr.SevenZipFile(MODEL_PATH_7Z, mode='r') as archive:
             archive.extractall(MODEL_DIR)
