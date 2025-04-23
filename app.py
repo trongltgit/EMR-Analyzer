@@ -1,4 +1,6 @@
 import os
+import threading
+import json
 import numpy as np
 import tensorflow as tf
 from flask import Flask, request, jsonify, render_template
@@ -6,6 +8,17 @@ from flask_cors import CORS
 from PIL import Image
 import py7zr
 import logging
+from pathlib import Path
+import cv2
+from tensorflow.keras.models import load_model
+import matplotlib.pyplot as plt
+import urllib.request
+from google.colab import drive
+drive.mount('/content/drive')
+
+# Đường dẫn đến mô hình đã được lưu trữ có độ chính xác cao nhất trên tập kiểm thử
+model_path = '/content/drive/MyDrive/efficientnet/efficientnet/best_weights_model.keras'
+best_model = load_model(model_path)
 
 logging.basicConfig(level=logging.DEBUG, filename="server.log",
                     format="%(asctime)s - %(levelname)s - %(message)s")
@@ -99,6 +112,22 @@ def predict():
     except Exception as e:
         logging.error(f"Lỗi trong route /predict: {str(e)}")
         return jsonify({'error': f'Internal Server Error: {str(e)}'}), 500
+
+
+# Mo hinh moi
+app = Flask(__name__)
+port = "5000"
+
+urllib.request.urlretrieve("https://gist.githubusercontent.com/datpmwork/2aa0573436e5060f0a1066a69a98b180/raw/2adf06193d0e660ddfe21bf0957e6a6d88d591b8/data-model-uploader.html", "/content/uploader.html")
+
+
+
+
+
+
+
+
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
