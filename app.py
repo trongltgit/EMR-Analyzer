@@ -7,17 +7,19 @@ from PIL import Image
 import logging
 import py7zr
 import glob
+import gdown  # Import gdown for downloading from Google Drive
 
 logging.basicConfig(level=logging.DEBUG, filename="server.log",
                     format="%(asctime)s - %(levelname)s - %(message)s")
 
 app = Flask(__name__)
-app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # Giới hạn 16MB
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # Limit to 16MB
 CORS(app, resources={r"/*": {"origins": ["https://emr-prediction.onrender.com/", "http://localhost:3000", "http://localhost:5000"]}})
 
 # Config model
 MODEL_DIR = "./models"
 MODEL_PATH = os.path.join(MODEL_DIR, "best_weights_model.keras")
+GOOGLE_DRIVE_URL = "https://drive.google.com/uc?id=1EpAgsWQSXi7CsUO8mEQDGAJyjdfN0T6n"  # Replace with your Google Drive file ID
 
 model = None
 
@@ -25,49 +27,36 @@ def load_model():
     global model
     if model is None:
         try:
+            # Create models directory if it doesn't exist
+            os.makedirs(MODEL_DIR, exist_ok=True)
+
+            # Check if the model file exists locally
             if not os.path.exists(MODEL_PATH):
-                logging.info("Model file not found, preparing to extract...")
-                split_files = sorted(glob.glob(os.path.join(MODEL_DIR, "best_weights_model.7z.*")))
-                logging.info(f"Found split files: {split_files}")
-                if not split_files:
-                    logging.error("No split archive files found.")
-                    raise FileNotFoundError("No split archive files found.")
-
-                archive_path = os.path.join(MODEL_DIR, "best_weights_model.7z")
-                logging.info(f"Merging split files into {archive_path}")
-                with open(archive_path, 'wb') as outfile:
-                    for split_file in split_files:
-                        logging.info(f"Reading {split_file}")
-                        with open(split_file, 'rb') as infile:
-                            outfile.write(infile.read())
-                logging.info("Split archives merged successfully.")
-
+                logging.info("Model file not found locally, downloading from Google Drive...")
                 try:
-                    logging.info(f"Extracting {archive_path}")
-                    with py7zr.SevenZipFile(archive_path, mode='r') as archive:
-                        archive.extractall(path=MODEL_DIR)
-                    logging.info("Model extracted successfully.")
+                    # Download the model file from Google Drive
+                    gdown.download(GOOGLE_DRIVE_URL, MODEL_PATH, quiet=False)
+                    logging.info("Model downloaded successfully from Google Drive.")
                 except Exception as e:
-                    logging.error(f"Error extracting model: {str(e)}")
-                    raise
+                    logging.error(f"Error downloading model from Google Drive: {str(e)}")
+                    raise FileNotFoundError(f"Failed to download model: {str(e)}")
 
-                os.remove(archive_path)
-
-            logging.info("📦 Đang tải model vào bộ nhớ...")
+            # Load the model
+            logging.info("📦 Loading model into memory...")
             model = tf.keras.models.load_model(MODEL_PATH)
-            logging.info("✅ Mô hình đã được load!")
+            logging.info("✅ Model loaded successfully!")
         except Exception as e:
-            logging.error(f"Lỗi khi tải model: {str(e)}")
-            print(f"Lỗi khi tải model: {str(e)}")
+            logging.error(f"Error loading model: {str(e)}")
+            print(f"Error loading model: {str(e)}")
             raise
 
 with app.app_context():
     try:
         load_model()
-        logging.info("✅ Mô hình đã được preload!")
+        logging.info("✅ Model preloaded successfully!")
     except Exception as e:
-        logging.error(f"Lỗi preload model: {str(e)}")
-        print(f"Lỗi preload model: {str(e)}")
+        logging.error(f"Error preloading model: {str(e)}")
+        print(f"Error preloading model: {str(e)}")
 
 @app.route('/')
 def home():
@@ -75,7 +64,7 @@ def home():
 
 @app.route('/dashboard')
 def dashboard():
-    logging.info("Trang dashboard được truy cập.")
+    logging.info("Dashboard page accessed.")
     return render_template('dashboard.html')
 
 @app.route('/predict', methods=['POST'])
@@ -85,17 +74,17 @@ def predict():
             load_model()
             
         if 'image' not in request.files:
-            logging.warning("Không có file ảnh được gửi!")
-            return jsonify({'error': 'Không có file ảnh được gửi!'}), 400
+            logging.warning("No image file provided!")
+            return jsonify({'error': 'No image file provided!'}), 400
 
         file = request.files['image']
         if file.filename == '':
-            logging.warning("Tên file rỗng!")
-            return jsonify({'error': 'Tên file rỗng!'}), 400
+            logging.warning("Empty filename!")
+            return jsonify({'error': 'Empty filename!'}), 400
 
         if not file.content_type.startswith('image/'):
-            logging.warning("File không phải ảnh!")
-            return jsonify({'error': 'File phải là ảnh (jpg, png, ...)!'}), 400
+            logging.warning("File is not an image!")
+            return jsonify({'error': 'File must be an image (jpg, png, ...)!'}), 400
 
         image = Image.open(file).convert('RGB')
         image = image.resize((224, 224))
@@ -103,12 +92,12 @@ def predict():
         img_array = np.expand_dims(img_array, axis=0)
 
         predictions = model.predict(img_array)
-        logging.info(f"📊 Kết quả dự đoán: {predictions}")
+        logging.info(f"📊 Prediction results: {predictions}")
         return jsonify({'predictions': predictions.tolist()})
     except Exception as e:
-        logging.error(f"Lỗi trong route /predict: {str(e)}")
-        print(f"Lỗi trong route /predict: {str(e)}")
-        return jsonify({'error': f'Lỗi xử lý: {str(e)}'}), 500
+        logging.error(f"Error in /predict route: {str(e)}")
+        print(f"Error in /predict route: {str(e)}")
+        return jsonify({'error': f'Processing error: {str(e)}'}), 500
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
