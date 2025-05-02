@@ -12,7 +12,8 @@ logging.basicConfig(level=logging.DEBUG, filename="server.log",
                     format="%(asctime)s - %(levelname)s - %(message)s")
 
 app = Flask(__name__)
-CORS(app)
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # Giới hạn 16MB
+CORS(app, resources={r"/*": {"origins": ["https://emr-analyzer.onrender.com", "http://localhost:5000"]}})
 
 # Config model
 MODEL_FILE_ID = "1EpAgsWQSXi7CsUO8mEQDGAJyjdfN0T6n"
@@ -25,13 +26,17 @@ def download_and_extract_model():
     if not os.path.exists(MODEL_EXTRACTED_PATH):
         logging.info("🧠 Model chưa tồn tại, đang tải từ Google Drive...")
         os.makedirs(MODEL_DIR, exist_ok=True)
-        url = f"https://drive.google.com/uc?id={MODEL_FILE_ID}"
-        gdown.download(url, MODEL_PATH_7Z, quiet=False)
-        logging.info("✅ Tải model thành công!")
-        logging.info("📦 Đang giải nén model...")
-        with py7zr.SevenZipFile(MODEL_PATH_7Z, mode='r') as archive:
-            archive.extractall(MODEL_DIR)
-        logging.info("✅ Giải nén thành công!")
+        try:
+            url = f"https://drive.google.com/uc?id={MODEL_FILE_ID}"
+            gdown.download(url, MODEL_PATH_7Z, quiet=False)
+            logging.info("✅ Tải model thành công!")
+            logging.info("📦 Đang giải nén model...")
+            with py7zr.SevenZipFile(MODEL_PATH_7Z, mode='r') as archive:
+                archive.extractall(MODEL_DIR)
+            logging.info("✅ Giải nén thành công!")
+        except Exception as e:
+            logging.error(f"Lỗi khi tải hoặc giải nén model: {str(e)}")
+            raise
 
 model = None
 def load_model():
@@ -46,7 +51,6 @@ def load_model():
             logging.error(f"Lỗi khi tải model: {str(e)}")
             raise
 
-# Preload model khi khởi động server (nếu có thể)
 with app.app_context():
     try:
         load_model()
@@ -65,7 +69,6 @@ def dashboard():
 @app.route('/predict', methods=['POST'])
 def predict():
     try:
-        # Nếu model không được preload thành công, thử tải lại
         if model is None:
             load_model()
             
@@ -77,6 +80,10 @@ def predict():
         if file.filename == '':
             return jsonify({'error': 'Tên file rỗng!'}), 400
 
+        if not file.content_type.startswith('image/'):
+            logging.warning("File không phải ảnh!")
+            return jsonify({'error': 'File phải là ảnh (jpg, png, ...)!')}, 400
+
         image = Image.open(file).convert('RGB')
         image = image.resize((224, 224))
         img_array = np.array(image) / 255.0
@@ -87,7 +94,8 @@ def predict():
         return jsonify({'predictions': predictions.tolist()})
     except Exception as e:
         logging.error(f"Lỗi trong route /predict: {str(e)}")
-        return jsonify({'error': f'Internal Server Error: {str(e)}'}), 500
+        return jsonify({'error': f'Lỗi xử lý: {str(e)}'}), 500
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port)
