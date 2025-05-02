@@ -13,7 +13,7 @@ logging.basicConfig(level=logging.DEBUG, filename="server.log",
 
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # Giới hạn 16MB
-CORS(app, resources={r"/*": {"origins": ["https://emr-analyzer.onrender.com", "http://localhost:3000", "http://localhost:5000"]}})
+CORS(app, resources={r"/*": {"origins": ["https://emr-prediction.onrender.com/", "http://localhost:3000", "http://localhost:5000"]}})
 
 # Config model
 MODEL_DIR = "./models"
@@ -27,22 +27,23 @@ def load_model():
         try:
             if not os.path.exists(MODEL_PATH):
                 logging.info("Model file not found, preparing to extract...")
-                # Tìm tất cả các tệp chia nhỏ
                 split_files = sorted(glob.glob(os.path.join(MODEL_DIR, "best_weights_model.7z.*")))
+                logging.info(f"Found split files: {split_files}")
                 if not split_files:
                     logging.error("No split archive files found.")
                     raise FileNotFoundError("No split archive files found.")
 
-                # Hợp nhất các tệp chia nhỏ thành một tệp .7z
                 archive_path = os.path.join(MODEL_DIR, "best_weights_model.7z")
+                logging.info(f"Merging split files into {archive_path}")
                 with open(archive_path, 'wb') as outfile:
                     for split_file in split_files:
+                        logging.info(f"Reading {split_file}")
                         with open(split_file, 'rb') as infile:
                             outfile.write(infile.read())
                 logging.info("Split archives merged successfully.")
 
-                # Giải nén tệp .7z
                 try:
+                    logging.info(f"Extracting {archive_path}")
                     with py7zr.SevenZipFile(archive_path, mode='r') as archive:
                         archive.extractall(path=MODEL_DIR)
                     logging.info("Model extracted successfully.")
@@ -50,7 +51,6 @@ def load_model():
                     logging.error(f"Error extracting model: {str(e)}")
                     raise
 
-                # Xóa tệp .7z sau khi giải nén (tùy chọn)
                 os.remove(archive_path)
 
             logging.info("📦 Đang tải model vào bộ nhớ...")
