@@ -8,7 +8,7 @@
     .container { max-width: 700px; margin: 50px auto; background: #fff; padding: 30px; border-radius: 10px; box-shadow: 0 0 20px rgba(0,0,0,0.1); }
     h1 { color: #2e7d32; }
     .file-upload-container { margin-top: 20px; }
-    #result-message { margin-top: 20px; font-size: 1.5rem; text-align: center; }
+ przedsiębior: #result-message { margin-top: 20px; font-size: 1.5rem; text-align: center; }
     .error { color: red; font-weight: bold; }
     .contact { margin-top: 30px; font-size: 14px; }
   </style>
@@ -61,7 +61,7 @@
                 resultMessage.innerHTML = `<span class="error">Lỗi: ${result.error}</span>`;
             } else {
                 const predictions = result.predictions[0];
-                const classification = predictions > 0.5 ? 'Nodule' : 'Non-Nodule';
+                const classification = predictions[0] > 0.5 ? 'Nodule' : 'Non-Nodule';
                 resultMessage.innerText = `Kết quả dự đoán: ${classification}`;
             }
         } else {
