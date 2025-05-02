@@ -22,11 +22,15 @@ def load_model():
     global model
     if model is None:
         try:
+            if not os.path.exists(MODEL_PATH):
+                logging.error(f"File model không tồn tại tại: {MODEL_PATH}")
+                raise FileNotFoundError(f"File model không tồn tại tại: {MODEL_PATH}")
             logging.info("📦 Đang tải model vào bộ nhớ...")
             model = tf.keras.models.load_model(MODEL_PATH)
             logging.info("✅ Mô hình đã được load!")
         except Exception as e:
             logging.error(f"Lỗi khi tải model: {str(e)}")
+            print(f"Lỗi khi tải model: {str(e)}")
             raise
 
 with app.app_context():
@@ -35,6 +39,7 @@ with app.app_context():
         logging.info("✅ Mô hình đã được preload!")
     except Exception as e:
         logging.error(f"Lỗi preload model: {str(e)}")
+        print(f"Lỗi preload model: {str(e)}")
 
 @app.route('/')
 def home():
@@ -56,6 +61,7 @@ def predict():
 
         file = request.files['image']
         if file.filename == '':
+            logging.warning("Tên file rỗng!")
             return jsonify({'error': 'Tên file rỗng!'}), 400
 
         if not file.content_type.startswith('image/'):
@@ -72,4 +78,9 @@ def predict():
         return jsonify({'predictions': predictions.tolist()})
     except Exception as e:
         logging.error(f"Lỗi trong route /predict: {str(e)}")
+        print(f"Lỗi trong route /predict: {str(e)}")
         return jsonify({'error': f'Lỗi xử lý: {str(e)}'}), 500
+
+if __name__ == '__main__':
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port)
