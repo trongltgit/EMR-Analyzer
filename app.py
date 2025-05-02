@@ -82,7 +82,7 @@ def predict():
 
         if not file.content_type.startswith('image/'):
             logging.warning("File không phải ảnh!")
-            return jsonify({'error': 'File phải là ảnh (jpg, png, ...)!')}, 400
+            return jsonify({'error': 'File phải là ảnh (jpg, png, ...)!'}), 400
 
         image = Image.open(file).convert('RGB')
         image = image.resize((224, 224))
