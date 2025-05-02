@@ -8,7 +8,7 @@
     .container { max-width: 700px; margin: 50px auto; background: #fff; padding: 30px; border-radius: 10px; box-shadow: 0 0 20px rgba(0,0,0,0.1); }
     h1 { color: #2e7d32; }
     .file-upload-container { margin-top: 20px; }
- przedsiębior: #result-message { margin-top: 20px; font-size: 1.5rem; text-align: center; }
+    #result-message { margin-top: 20px; font-size: 1.5rem; text-align: center; }
     .error { color: red; font-weight: bold; }
     .contact { margin-top: 30px; font-size: 14px; }
   </style>
@@ -51,7 +51,7 @@
     resultMessage.innerText = "Đang phân tích...";
     
     try {
-        const response = await fetch('https://emr-prediction.onrender.com/dashboard', {
+        const response = await fetch('/predict', {
             method: 'POST',
             body: formData
         });
