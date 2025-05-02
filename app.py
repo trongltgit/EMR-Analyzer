@@ -6,6 +6,7 @@ from flask_cors import CORS
 from PIL import Image
 import logging
 import py7zr
+import glob
 
 logging.basicConfig(level=logging.DEBUG, filename="server.log",
                     format="%(asctime)s - %(levelname)s - %(message)s")
@@ -25,11 +26,22 @@ def load_model():
     if model is None:
         try:
             if not os.path.exists(MODEL_PATH):
-                logging.info("Model file not found, extracting from split archives...")
-                archive_path = os.path.join(MODEL_DIR, "best_weights_model.7z.001")
-                if not os.path.exists(archive_path):
-                    logging.error(f"Split archive not found at: {archive_path}")
-                    raise FileNotFoundError(f"Split archive not found at: {archive_path}")
+                logging.info("Model file not found, preparing to extract...")
+                # Tìm tất cả các tệp chia nhỏ
+                split_files = sorted(glob.glob(os.path.join(MODEL_DIR, "best_weights_model.7z.*")))
+                if not split_files:
+                    logging.error("No split archive files found.")
+                    raise FileNotFoundError("No split archive files found.")
+
+                # Hợp nhất các tệp chia nhỏ thành một tệp .7z
+                archive_path = os.path.join(MODEL_DIR, "best_weights_model.7z")
+                with open(archive_path, 'wb') as outfile:
+                    for split_file in split_files:
+                        with open(split_file, 'rb') as infile:
+                            outfile.write(infile.read())
+                logging.info("Split archives merged successfully.")
+
+                # Giải nén tệp .7z
                 try:
                     with py7zr.SevenZipFile(archive_path, mode='r') as archive:
                         archive.extractall(path=MODEL_DIR)
@@ -37,6 +49,10 @@ def load_model():
                 except Exception as e:
                     logging.error(f"Error extracting model: {str(e)}")
                     raise
+
+                # Xóa tệp .7z sau khi giải nén (tùy chọn)
+                os.remove(archive_path)
+
             logging.info("📦 Đang tải model vào bộ nhớ...")
             model = tf.keras.models.load_model(MODEL_PATH)
             logging.info("✅ Mô hình đã được load!")
