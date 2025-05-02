@@ -1,9 +1,10 @@
 services:
   - type: web
     name: nodule-detector
-    env: python
-    buildCommand: "pip install -r requirements.txt"
-    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT
-   envVars:
+    env: docker
+    dockerfilePath: ./Dockerfile
+    envVars:
       - key: PORT
         value: 5000
+      - key: PYTHON_WORKER_TIMEOUT
+        value: 120
