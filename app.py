@@ -75,6 +75,7 @@ def home():
 
 @app.route('/dashboard')
 def dashboard():
+    logging.info("Trang dashboard được truy cập.")
     return render_template('dashboard.html')
 
 @app.route('/predict', methods=['POST'])
