@@ -31,47 +31,34 @@
     </div>
   </div>
 <script>
-  document.getElementById('analyze-button').addEventListener('click', async function () {
-    const fileInput = document.getElementById('upload');
-    const file = fileInput.files[0];
-    const resultMessage = document.getElementById('result-message');
-    
-    if (!file) {
-        resultMessage.innerHTML = `<span class="error">Vui lòng chọn một file ảnh!</span>`;
-        return;
-    }
-    
-    if (file.size > 16 * 1024 * 1024) {
-        resultMessage.innerHTML = `<span class="error">File ảnh quá lớn! Vui lòng chọn file dưới 16MB.</span>`;
-        return;
-    }
-    
-    const formData = new FormData();
-    formData.append('image', file);
-    resultMessage.innerText = "Đang phân tích...";
-    
-    try {
-        const response = await fetch('/predict', {
-            method: 'POST',
-            body: formData
-        });
-        if (response.ok) {
-            const result = await response.json();
-            if (result.error) {
-                resultMessage.innerHTML = `<span class="error">Lỗi: ${result.error}</span>`;
-            } else {
-                const predictions = result.predictions[0];
-                const classification = predictions[0] > 0.5 ? 'Nodule' : 'Non-Nodule';
-                resultMessage.innerText = `Kết quả dự đoán: ${classification}`;
+        document.getElementById('predictButton').addEventListener('click', async () => {
+            const input = document.getElementById('imageInput');
+            const file = input.files[0];
+            if (!file) {
+                document.getElementById('result').innerText = 'Please select an image.';
+                return;
             }
-        } else {
-            const errorText = await response.text();
-            resultMessage.innerHTML = `<span class="error">Lỗi server: ${errorText}</span>`;
-        }
-    } catch (err) {
-        resultMessage.innerHTML = `<span class="error">Lỗi kết nối: ${err.message}</span>`;
-    }
-});
+
+            const formData = new FormData();
+            formData.append('image', file);
+
+            try {
+                const response = await fetch(`${window.location.origin}/predict`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    document.getElementById('result').innerText = `Result: ${data.result}, Confidence: ${data.confidence}`;
+                } else {
+                    document.getElementById('result').innerText = `Error: ${data.error || 'Prediction failed.'}`;
+                }
+            } catch (error) {
+                document.getElementById('result').innerText = `Fetch error: ${error}`;
+            }
+        });
 </script>
 </body>
 </html>
