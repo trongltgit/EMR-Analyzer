@@ -1,103 +1,57 @@
 import os
 import numpy as np
-import tensorflow as tf
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 from PIL import Image
-import logging
-import py7zr
-import glob
-import gdown  # Import gdown for downloading from Google Drive
-
-logging.basicConfig(level=logging.DEBUG, filename="server.log",
-                    format="%(asctime)s - %(levelname)s - %(message)s")
+import tensorflow as tf
+import gdown
 
 app = Flask(__name__)
-app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # Limit to 16MB
-CORS(app, resources={r"/*": {"origins": ["https://emr-prediction.onrender.com/", "http://localhost:3000", "http://localhost:5000"]}})
+CORS(app)
 
-# Config model
-MODEL_DIR = "./models"
-MODEL_PATH = os.path.join(MODEL_DIR, "best_weights_model.keras")
-GOOGLE_DRIVE_URL = "https://drive.google.com/uc?id=1EpAgsWQSXi7CsUO8mEQDGAJyjdfN0T6n"  # Replace with your Google Drive file ID
+# Đường dẫn model và URL Google Drive
+MODEL_PATH = 'models/best_weights_model.keras'
+MODEL_DIR = 'models'
+GOOGLE_DRIVE_URL = 'https://drive.google.com/uc?id=1EpAgsWQSXi7CsUO8mEQDGAJyjdfN0T6n'  # thay đúng ID nếu cần
 
-model = None
+# Tạo thư mục nếu chưa có
+os.makedirs(MODEL_DIR, exist_ok=True)
 
-def load_model():
-    global model
-    if model is None:
-        try:
-            # Create models directory if it doesn't exist
-            os.makedirs(MODEL_DIR, exist_ok=True)
+# Tải model nếu chưa có
+if not os.path.exists(MODEL_PATH):
+    print("🔽 Model chưa có, đang tải từ Google Drive...")
+    gdown.download(GOOGLE_DRIVE_URL, MODEL_PATH, quiet=False)
+    print("✅ Tải model hoàn tất.")
 
-            # Check if the model file exists locally
-            if not os.path.exists(MODEL_PATH):
-                logging.info("Model file not found locally, downloading from Google Drive...")
-                try:
-                    # Download the model file from Google Drive
-                    gdown.download(GOOGLE_DRIVE_URL, MODEL_PATH, quiet=False)
-                    logging.info("Model downloaded successfully from Google Drive.")
-                except Exception as e:
-                    logging.error(f"Error downloading model from Google Drive: {str(e)}")
-                    raise FileNotFoundError(f"Failed to download model: {str(e)}")
-
-            # Load the model
-            logging.info("📦 Loading model into memory...")
-            model = tf.keras.models.load_model(MODEL_PATH)
-            logging.info("✅ Model loaded successfully!")
-        except Exception as e:
-            logging.error(f"Error loading model: {str(e)}")
-            print(f"Error loading model: {str(e)}")
-            raise
-
-with app.app_context():
-    try:
-        load_model()
-        logging.info("✅ Model preloaded successfully!")
-    except Exception as e:
-        logging.error(f"Error preloading model: {str(e)}")
-        print(f"Error preloading model: {str(e)}")
-
-@app.route('/')
-def home():
-    return render_template('index.html')
-
-@app.route('/dashboard')
-def dashboard():
-    logging.info("Dashboard page accessed.")
-    return render_template('dashboard.html')
+# Load model
+model = tf.keras.models.load_model(MODEL_PATH)
 
 @app.route('/predict', methods=['POST'])
 def predict():
+    if 'image' not in request.files:
+        return jsonify({'error': 'Không tìm thấy file ảnh'}), 400
+    file = request.files['image']
+    if file.filename == '':
+        return jsonify({'error': 'Tên file rỗng'}), 400
+
     try:
-        if model is None:
-            load_model()
-            
-        if 'image' not in request.files:
-            logging.warning("No image file provided!")
-            return jsonify({'error': 'No image file provided!'}), 400
-
-        file = request.files['image']
-        if file.filename == '':
-            logging.warning("Empty filename!")
-            return jsonify({'error': 'Empty filename!'}), 400
-
-        if not file.content_type.startswith('image/'):
-            logging.warning("File is not an image!")
-            return jsonify({'error': 'File must be an image (jpg, png, ...)!'}), 400
-
-        image = Image.open(file).convert('RGB')
+        # Xử lý ảnh
+        image = Image.open(file.stream).convert('RGB')
         image = image.resize((224, 224))
         img_array = np.array(image) / 255.0
         img_array = np.expand_dims(img_array, axis=0)
 
+        # Dự đoán
         predictions = model.predict(img_array)
-        logging.info(f"📊 Prediction results: {predictions}")
-        return jsonify({'predictions': predictions.tolist()})
+        confidence = float(predictions[0][0])
+        label = 'Nodule' if confidence > 0.5 else 'Non-Nodule'
+        return jsonify({'result': label, 'confidence': confidence})
     except Exception as e:
-        logging.error(f"Error in /predict route: {str(e)}")
-        print(f"Error in /predict route: {str(e)}")
-        return jsonify({'error': f'Processing error: {str(e)}'}), 500
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/')
+def index():
+    return send_file('dashboard.html')
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
