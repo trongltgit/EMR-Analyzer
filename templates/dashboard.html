@@ -41,12 +41,20 @@
         return;
     }
     
+    if (file.size > 16 * 1024 * 1024) {
+        resultMessage.innerHTML = `<span class="error">File ảnh quá lớn! Vui lòng chọn file dưới 16MB.</span>`;
+        return;
+    }
+    
     const formData = new FormData();
     formData.append('image', file);
     resultMessage.innerText = "Đang phân tích...";
     
     try {
-        const response = await fetch('/predict', { method: 'POST', body: formData });
+        const response = await fetch('https://emr-analyzer.onrender.com/predict', {
+            method: 'POST',
+            body: formData
+        });
         if (response.ok) {
             const result = await response.json();
             if (result.error) {
