@@ -1,8 +1,5 @@
 FROM python:3.11-slim
 
-# Cài đặt các công cụ cần thiết
-RUN apt-get update && apt-get install -y p7zip-full && rm -rf /var/lib/apt/lists/*
-
 # Set thư mục làm việc
 WORKDIR /app
 
@@ -13,7 +10,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Sao chép toàn bộ mã nguồn vào container
 COPY . .
 
-# Expose cổng 5000 (hoặc cổng bạn sử dụng)
+# Expose cổng 5000
 EXPOSE 5000
 
 # Command để chạy app
