@@ -5,6 +5,7 @@ from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
 from PIL import Image
 import logging
+import py7zr
 
 logging.basicConfig(level=logging.DEBUG, filename="server.log",
                     format="%(asctime)s - %(levelname)s - %(message)s")
@@ -18,13 +19,24 @@ MODEL_DIR = "./models"
 MODEL_PATH = os.path.join(MODEL_DIR, "best_weights_model.keras")
 
 model = None
+
 def load_model():
     global model
     if model is None:
         try:
             if not os.path.exists(MODEL_PATH):
-                logging.error(f"File model không tồn tại tại: {MODEL_PATH}")
-                raise FileNotFoundError(f"File model không tồn tại tại: {MODEL_PATH}")
+                logging.info("Model file not found, extracting from split archives...")
+                archive_path = os.path.join(MODEL_DIR, "best_weights_model.7z.001")
+                if not os.path.exists(archive_path):
+                    logging.error(f"Split archive not found at: {archive_path}")
+                    raise FileNotFoundError(f"Split archive not found at: {archive_path}")
+                try:
+                    with py7zr.SevenZipFile(archive_path, mode='r') as archive:
+                        archive.extractall(path=MODEL_DIR)
+                    logging.info("Model extracted successfully.")
+                except Exception as e:
+                    logging.error(f"Error extracting model: {str(e)}")
+                    raise
             logging.info("📦 Đang tải model vào bộ nhớ...")
             model = tf.keras.models.load_model(MODEL_PATH)
             logging.info("✅ Mô hình đã được load!")
