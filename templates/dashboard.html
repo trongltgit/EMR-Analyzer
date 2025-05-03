@@ -9,7 +9,6 @@
     h1 { color: #2e7d32; }
     .file-upload-container { margin-top: 20px; }
     #result-message { margin-top: 20px; font-size: 1.5rem; text-align: center; }
-    .error { color: red; font-weight: bold; }
     .contact { margin-top: 30px; font-size: 14px; }
   </style>
 </head>
@@ -31,33 +30,33 @@
     </div>
   </div>
 <script>
-        const analyzeBtn = document.getElementById('analyze-button');
-        analyzeBtn.addEventListener('click', () => {
-            const fileInput = document.getElementById('file-input');
-            const file = fileInput.files[0];
-            if (!file) {
-                document.getElementById('result').innerText = 'Vui lòng chọn một ảnh.';
-                return;
-            }
-            const formData = new FormData();
-            formData.append('file', file);
-
-            fetch('/predict', {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.prediction) {
-                    document.getElementById('result').innerText = 'Kết quả: ' + data.prediction;
-                } else if (data.error) {
-                    document.getElementById('result').innerText = 'Lỗi: ' + data.error;
-                }
-            })
-            .catch(error => {
-                document.getElementById('result').innerText = 'Lỗi: ' + error;
-            });
-        });
+  document.getElementById('analyze-button').addEventListener('click', async function () {
+    const fileInput = document.getElementById('upload');
+    const file = fileInput.files[0];
+    if (!file) {
+      alert('Vui lòng chọn một file!');
+      return;
+    }
+    const formData = new FormData();
+    formData.append('image', file);
+    const resultMessage = document.getElementById('result-message');
+    resultMessage.innerText = "Đang phân tích...";
+    try {
+      const response = await fetch('https://emr-analyzer.onrender.com/predict', { method: 'POST', body: formData });
+      const contentType = response.headers.get('content-type');
+      if (response.ok && contentType && contentType.includes('application/json')) {
+        const result = await response.json();
+        const predictions = result.predictions[0];
+        const classification = predictions > 0.5 ? 'Nodule' : 'Non-Nodule';
+        resultMessage.innerText = `Kết quả dự đoán: ${classification}`;
+      } else {
+        const errorText = await response.text();
+        resultMessage.innerText = `Lỗi: Server trả về dữ liệu không hợp lệ.\n${errorText}`;
+      }
+    } catch (err) {
+      resultMessage.innerText = `Lỗi: ${err.message}`;
+    }
+  });
 </script>
 </body>
 </html>
