@@ -21,6 +21,7 @@ CORS(app)  # Cho phép tất cả origin
 # Cấu hình thông số cho model
 MODEL_FILE_ID = "1EpAgsWQSXi7CsUO8mEQDGAJyjdfN0T6n"
 MODEL_FILE_NAME = "best_weights_model.keras"
+# Lưu ý: Đảm bảo MODEL_DIR chứa đúng đường dẫn mà bạn deploy (ở đây là thư mục trong Drive)
 MODEL_DIR = "./MyDrive/efficientnet/efficientnet"
 MODEL_PATH = os.path.join(MODEL_DIR, MODEL_FILE_NAME)
 model = None
@@ -35,7 +36,7 @@ def assemble_model():
     """
     global model
     try:
-        # Danh sách các file split trong thư mục models
+        # Danh sách các file split trong thư mục MODEL_DIR
         segments = [os.path.join(MODEL_DIR, f"best_weights_model.7z.00{i}") for i in range(1, 5)]
         logging.info("Kiểm tra sự tồn tại của các file split: %s", segments)
         for seg in segments:
@@ -130,6 +131,15 @@ def predict():
     except Exception as e:
         logging.error("Lỗi khi thực hiện dự đoán: %s", str(e), exc_info=True)
         return jsonify({'error': f'Lỗi khi xử lý ảnh hoặc dự đoán: {str(e)}'}), 500
+
+# --- Thêm error handlers để đảm bảo luôn trả về JSON ---
+@app.errorhandler(404)
+def not_found(e):
+    return jsonify({"error": "Trang không tồn tại."}), 404
+
+@app.errorhandler(500)
+def internal_error(e):
+    return jsonify({"error": "Lỗi máy chủ nội bộ."}), 500
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 10000))
