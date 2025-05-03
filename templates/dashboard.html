@@ -15,7 +15,7 @@
 <body>
   <div class="container">
     <h1>Chào mừng đến với Dashboard - Phân tích Hồ sơ EMR</h1>
-    <p>Hãy chọn ảnh để phân tích và xem kết quả phân loại "Nodule" hoặc "Non-Nodule".</p>
+    <p>Chọn ảnh để phân tích và xem kết quả phân loại giữa "Nodule" và "Non-Nodule".</p>
     <div class="file-upload-container">
       <h2>Chọn ảnh để phân tích</h2>
       <input type="file" id="upload" accept="image/*">
@@ -43,7 +43,7 @@
       resultMessage.innerText = "Đang phân tích...";
 
       try {
-        // Dùng đường dẫn tương đối để gọi API predict (tránh lỗi CORS và Failed to fetch)
+        // API được gọi theo đường dẫn tương đối để tránh lỗi CORS khi deploy
         const res = await fetch('/predict', {
           method: 'POST',
           body: formData
