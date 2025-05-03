@@ -18,7 +18,7 @@ CORS(app, origins=["https://emr-prediction.onrender.com"])
 
 MODEL_FILE_ID = "1EpAgsWQSXi7CsUO8mEQDGAJyjdfN0T6n"
 MODEL_FILE_NAME = "best_weights_model.keras"
-MODEL_DIR = "./models"  # Simpler path
+MODEL_DIR = "./content/drive/MyDrive/efficientnet/efficientnet"  # Simpler path
 MODEL_PATH = os.path.join(MODEL_DIR, MODEL_FILE_NAME)
 MODEL_7Z_DIR = "./models"
 
