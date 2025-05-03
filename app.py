@@ -1,58 +1,91 @@
+# Import necessary libraries
 import os
-import numpy as np
-from flask import Flask, request, jsonify, send_file
-from flask_cors import CORS
-from PIL import Image
+from flask import Flask, request, jsonify, render_template
 import tensorflow as tf
-import gdown
+import numpy as np
+from PIL import Image
+
+# Attempt to import gdown, install if not available
+try:
+    import gdown
+except ImportError:
+    import subprocess
+    subprocess.run(['pip', 'install', 'gdown'])
+    import gdown
+
+# Google Drive file ID for the TensorFlow model (replace with your actual file ID)
+MODEL_FILE_ID = '1EpAgsWQSXi7CsUO8mEQDGAJyjdfN0T6n'
+MODEL_DIR = '/content/drive/MyDrive/efficientnet/efficientnet'
+MODEL_PATH = os.path.join(MODEL_DIR, 'best_weights_model.keras')
+
+# Ensure the models directory exists
+if not os.path.exists(MODEL_DIR):
+    os.makedirs(MODEL_DIR)
+
+# Download the model from Google Drive if not already present
+if not os.path.exists(MODEL_PATH):
+    print("Downloading model from Google Drive...")
+    drive_url = f'https://drive.google.com/uc?id={MODEL_FILE_ID}'
+    gdown.download(drive_url, MODEL_PATH, quiet=False)
+    print("Download complete.")
+
+# Load the TensorFlow model
+model = tf.keras.models.load_model(MODEL_PATH)
 
 app = Flask(__name__)
-CORS(app)
 
-# Đường dẫn model và URL Google Drive
-MODEL_PATH = 'models/best_weights_model.keras'
-MODEL_DIR = 'models'
-GOOGLE_DRIVE_URL = 'https://drive.google.com/uc?id=1EpAgsWQSXi7CsUO8mEQDGAJyjdfN0T6n'  # thay đúng ID nếu cần
+@app.route('/')
+def home():
+    return render_template('index.html')
 
-# Tạo thư mục nếu chưa có
-os.makedirs(MODEL_DIR, exist_ok=True)
-
-# Tải model nếu chưa có
-if not os.path.exists(MODEL_PATH):
-    print("🔽 Model chưa có, đang tải từ Google Drive...")
-    gdown.download(GOOGLE_DRIVE_URL, MODEL_PATH, quiet=False)
-    print("✅ Tải model hoàn tất.")
-
-# Load model
-model = tf.keras.models.load_model(MODEL_PATH)
+@app.route('/dashboard')
+def dashboard():
+    return render_template('dashboard.html')
 
 @app.route('/predict', methods=['POST'])
 def predict():
-    if 'image' not in request.files:
-        return jsonify({'error': 'Không tìm thấy file ảnh'}), 400
-    file = request.files['image']
+    # Check if an image file was uploaded
+    if 'file' not in request.files:
+        return jsonify({'error': 'No file part in the request'}), 400
+    
+    file = request.files['file']
     if file.filename == '':
-        return jsonify({'error': 'Tên file rỗng'}), 400
+        return jsonify({'error': 'No file selected'}), 400
 
     try:
-        # Xử lý ảnh
+        # Open the image, convert to RGB and resize to 224x224
         image = Image.open(file.stream).convert('RGB')
         image = image.resize((224, 224))
+        
+        # Convert image to numpy array and normalize to [0,1]
         img_array = np.array(image) / 255.0
+        
+        # Add batch dimension
         img_array = np.expand_dims(img_array, axis=0)
+        
+        # Make prediction
+        prediction = model.predict(img_array)
+        
+        # Determine class index or value
+        # If model outputs a single probability (binary classification)
+        if prediction.ndim == 1 or (prediction.ndim > 1 and prediction.shape[1] == 1):
+            # Flatten and get first value
+            pred_val = float(np.squeeze(prediction))
+            class_idx = int(pred_val >= 0.5)
+        else:
+            # Multi-class or probability vector
+            class_idx = int(np.argmax(prediction[0]))
+        
+        # Map class index to label
+        classes = ['Non-Nodule', 'Nodule']
+        result = classes[class_idx]
+        
+        return jsonify({'prediction': result})
 
-        # Dự đoán
-        predictions = model.predict(img_array)
-        confidence = float(predictions[0][0])
-        label = 'Nodule' if confidence > 0.5 else 'Non-Nodule'
-        return jsonify({'result': label, 'confidence': confidence})
     except Exception as e:
+        # Return any error as JSON
         return jsonify({'error': str(e)}), 500
 
-@app.route('/')
-def index():
-    return send_file('dashboard.html')
-
-if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port)
+if __name__ == "__main__":
+    # Run the Flask app
+    app.run(host='0.0.0.0', port=5000)
