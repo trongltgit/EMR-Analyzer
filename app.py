@@ -5,7 +5,6 @@ from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
 from PIL import Image
 import gdown
-import py7zr
 import logging
 
 logging.basicConfig(level=logging.DEBUG, filename="server.log",
@@ -14,45 +13,43 @@ logging.basicConfig(level=logging.DEBUG, filename="server.log",
 app = Flask(__name__)
 CORS(app)
 
-# Config model
-MODEL_FILE_ID = "1EpAgsWQSXi7CsUO8mEQDGAJyjdfN0T6n"
-MODEL_FILE_NAME = "best_weights_model.7z"
+# Config model: dùng trực tiếp file .keras
+MODEL_FILE_ID = "YOUR_DRIVE_FILE_ID_HERE"   # <-- thay bằng ID file .keras
+MODEL_FILE_NAME = "best_weights_model.keras"
 MODEL_DIR = "./models"
-MODEL_PATH_7Z = os.path.join(MODEL_DIR, MODEL_FILE_NAME)
-MODEL_EXTRACTED_PATH = os.path.join(MODEL_DIR, "best_weights_model.keras")
+MODEL_PATH = os.path.join(MODEL_DIR, MODEL_FILE_NAME)
 
-def download_and_extract_model():
-    if not os.path.exists(MODEL_EXTRACTED_PATH):
-        logging.info("🧠 Model chưa tồn tại, đang tải từ Google Drive...")
+def download_model():
+    """Nếu chưa có model, tải về từ Drive."""
+    if not os.path.exists(MODEL_DIR):
         os.makedirs(MODEL_DIR, exist_ok=True)
+    if not os.path.isfile(MODEL_PATH):
+        logging.info("🧠 Model chưa tồn tại, đang tải từ Google Drive...")
         url = f"https://drive.google.com/uc?id={MODEL_FILE_ID}"
-        gdown.download(url, MODEL_PATH_7Z, quiet=False)
+        # tải trực tiếp file .keras
+        gdown.download(url, MODEL_PATH, quiet=False)
         logging.info("✅ Tải model thành công!")
-        logging.info("📦 Đang giải nén model...")
-        with py7zr.SevenZipFile(MODEL_PATH_7Z, mode='r') as archive:
-            archive.extractall(MODEL_DIR)
-        logging.info("✅ Giải nén thành công!")
 
 model = None
 def load_model():
     global model
     if model is None:
         try:
-            download_and_extract_model()
-            logging.info("📦 Đang tải model vào bộ nhớ...")
-            model = tf.keras.models.load_model(MODEL_EXTRACTED_PATH)
+            download_model()
+            logging.info("📦 Đang load model vào bộ nhớ...")
+            model = tf.keras.models.load_model(MODEL_PATH)
             logging.info("✅ Mô hình đã được load!")
         except Exception as e:
-            logging.error(f"Lỗi khi tải model: {str(e)}")
+            logging.error(f"Lỗi khi load model: {e}")
             raise
 
-# Preload model khi khởi động server (nếu có thể)
+# Preload model khi khởi động server
 with app.app_context():
     try:
         load_model()
         logging.info("✅ Mô hình đã được preload!")
     except Exception as e:
-        logging.error(f"Lỗi preload model: {str(e)}")
+        logging.error(f"Lỗi preload model: {e}")
 
 @app.route('/')
 def home():
@@ -65,10 +62,9 @@ def dashboard():
 @app.route('/predict', methods=['POST'])
 def predict():
     try:
-        # Nếu model không được preload thành công, thử tải lại
         if model is None:
             load_model()
-            
+
         if 'image' not in request.files:
             logging.warning("Không có file ảnh được gửi!")
             return jsonify({'error': 'Không có file ảnh được gửi!'}), 400
@@ -77,17 +73,17 @@ def predict():
         if file.filename == '':
             return jsonify({'error': 'Tên file rỗng!'}), 400
 
-        image = Image.open(file).convert('RGB')
-        image = image.resize((224, 224))
-        img_array = np.array(image) / 255.0
-        img_array = np.expand_dims(img_array, axis=0)
+        img = Image.open(file).convert('RGB').resize((224, 224))
+        x = np.expand_dims(np.array(img) / 255.0, axis=0)
 
-        predictions = model.predict(img_array)
-        logging.info(f"📊 Kết quả dự đoán: {predictions}")
-        return jsonify({'predictions': predictions.tolist()})
+        preds = model.predict(x)[0][0]
+        logging.info(f"📊 Kết quả dự đoán: {preds}")
+        # thresholds 0.5
+        cls = 'Nodule' if preds > 0.5 else 'Non-Nodule'
+        return jsonify({'classification': cls, 'score': float(preds)})
     except Exception as e:
-        logging.error(f"Lỗi trong route /predict: {str(e)}")
-        return jsonify({'error': f'Internal Server Error: {str(e)}'}), 500
+        logging.error(f"Lỗi trong route /predict: {e}")
+        return jsonify({'error': f'Internal Server Error: {e}'}), 500
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
+    app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 5000)))
