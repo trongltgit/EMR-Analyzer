@@ -5,70 +5,63 @@ from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
 from PIL import Image
 import gdown
-import logging
 import subprocess
+import logging
 
 logging.basicConfig(level=logging.DEBUG, filename="server.log",
                     format="%(asctime)s - %(levelname)s - %(message)s")
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, resources={r"/*": {"origins": "*"}})
 
-# === Config ===
-USE_7Z_SPLIT = True  # Nếu bạn muốn dùng file .7z.001 -> .004 thay vì Google Drive
-MODEL_FILE_ID = "1EpAgsWQSXi7CsUO8mEQDGAJyjdfN0T6n"  # Nếu dùng Drive
+MODEL_FILE_ID = "1EpAgsWQSXi7CsUO8mEQDGAJyjdfN0T6n"
 MODEL_FILE_NAME = "best_weights_model.keras"
-MODEL_DIR = "./models"
+MODEL_DIR = "./MyDrive/efficientnet/efficientnet"
 MODEL_PATH = os.path.join(MODEL_DIR, MODEL_FILE_NAME)
+MODEL_7Z_DIR = "./models"
 
-def extract_7z_parts():
-    logging.info("🔧 Đang nối và giải nén các phần .7z...")
-    part_files = [f"{MODEL_DIR}/best_weights_model.7z.{str(i).zfill(3)}" for i in range(1, 5)]
+def extract_model_from_7z():
+    if not os.path.exists(MODEL_PATH):
+        logging.info("📦 Đang nối và giải nén model từ các file .7z...")
+        part_files = [os.path.join(MODEL_7Z_DIR, f"best_weights_model.7z.00{i}") for i in range(1, 5)]
+        full_archive = os.path.join(MODEL_7Z_DIR, "full_model.7z")
 
-    for file in part_files:
-        if not os.path.exists(file):
-            raise FileNotFoundError(f"Thiếu file: {file}")
+        with open(full_archive, 'wb') as f_out:
+            for part in part_files:
+                with open(part, 'rb') as f_in:
+                    f_out.write(f_in.read())
 
-    try:
-        subprocess.run(["7z", "x", f"{part_files[0]}", f"-o{MODEL_DIR}"], check=True)
-        logging.info("✅ Đã giải nén thành công .keras từ các phần .7z!")
-    except subprocess.CalledProcessError as e:
-        logging.error(f"Lỗi khi giải nén: {e}")
-        raise
+        # Giải nén
+        subprocess.run(["7z", "x", full_archive, f"-o{MODEL_DIR}"], check=True)
+        logging.info("✅ Giải nén model thành công!")
 
 def download_model():
     if not os.path.exists(MODEL_DIR):
         os.makedirs(MODEL_DIR, exist_ok=True)
-
     if not os.path.isfile(MODEL_PATH):
-        if USE_7Z_SPLIT:
-            logging.info("📦 Dùng file .7z chia nhỏ để lấy model...")
-            extract_7z_parts()
-        else:
-            logging.info("📥 Đang tải model từ Google Drive...")
+        try:
+            logging.info("🌐 Đang tải model từ Google Drive...")
             url = f"https://drive.google.com/uc?id={MODEL_FILE_ID}"
             gdown.download(url, MODEL_PATH, quiet=False)
-            logging.info("✅ Đã tải model thành công!")
+            logging.info("✅ Tải model từ Drive thành công!")
+        except Exception as e:
+            logging.warning(f"⚠️ Không tải được từ Drive: {e}")
+            extract_model_from_7z()
 
 model = None
 def load_model():
     global model
     if model is None:
-        try:
-            download_model()
-            logging.info("📦 Load model vào bộ nhớ...")
-            model = tf.keras.models.load_model(MODEL_PATH)
-            logging.info("✅ Mô hình đã được load!")
-        except Exception as e:
-            logging.error(f"Lỗi khi load model: {e}")
-            raise
+        download_model()
+        logging.info("🚀 Đang load model...")
+        model = tf.keras.models.load_model(MODEL_PATH)
+        logging.info("✅ Model đã được load vào bộ nhớ!")
 
-# Preload khi khởi động
 with app.app_context():
     try:
         load_model()
     except Exception as e:
-        logging.error(f"Lỗi preload model: {e}")
+        logging.error(f"Lỗi khi preload model: {e}")
 
 @app.route('/')
 def home():
@@ -85,7 +78,7 @@ def predict():
             load_model()
 
         if 'image' not in request.files:
-            return jsonify({'error': 'Không có file ảnh được gửi!'}), 400
+            return jsonify({'error': 'Không có file ảnh!'}), 400
 
         file = request.files['image']
         if file.filename == '':
@@ -98,8 +91,8 @@ def predict():
         cls = 'Nodule' if preds > 0.5 else 'Non-Nodule'
         return jsonify({'classification': cls, 'score': float(preds)})
     except Exception as e:
-        logging.error(f"Lỗi trong /predict: {e}")
-        return jsonify({'error': f'Internal Server Error: {e}'}), 500
+        logging.error(f"Lỗi khi dự đoán: {e}")
+        return jsonify({'error': f'Lỗi nội bộ: {e}'}), 500
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 5000)))
