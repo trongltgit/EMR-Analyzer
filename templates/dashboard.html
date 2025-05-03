@@ -43,18 +43,24 @@
       resultMessage.innerText = "Đang phân tích...";
 
       try {
-        // API được gọi theo đường dẫn tương đối để tránh lỗi CORS khi deploy
         const res = await fetch('/predict', {
           method: 'POST',
           body: formData
         });
+
+        // Kiểm tra header để đảm bảo trả về JSON
+        const contentType = res.headers.get("content-type");
+        if (!contentType || !contentType.includes("application/json")) {
+          const text = await res.text();
+          throw new Error("Máy chủ trả về dữ liệu không hợp lệ: " + text);
+        }
+
+        const data = await res.json();
         if (!res.ok) {
-          const err = await res.json();
-          resultMessage.innerText = `Lỗi: ${err.error || res.statusText}`;
+          resultMessage.innerText = `Lỗi: ${data.error || res.statusText}`;
           return;
         }
-        const { classification, score } = await res.json();
-        resultMessage.innerText = `Kết quả: ${classification} (score: ${score.toFixed(3)})`;
+        resultMessage.innerText = `Kết quả: ${data.classification} (score: ${data.score.toFixed(3)})`;
       } catch (e) {
         resultMessage.innerText = `Lỗi mạng: ${e.message}`;
       }
