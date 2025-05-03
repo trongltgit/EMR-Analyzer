@@ -1,38 +1,58 @@
-# Import necessary libraries
 import os
-from flask import Flask, request, jsonify, render_template
-import tensorflow as tf
 import numpy as np
+import tensorflow as tf
+from flask import Flask, request, jsonify, render_template
+from flask_cors import CORS
 from PIL import Image
+import gdown
+import py7zr
+import logging
 
-# Attempt to import gdown, install if not available
-try:
-    import gdown
-except ImportError:
-    import subprocess
-    subprocess.run(['pip', 'install', 'gdown'])
-    import gdown
-
-# Google Drive file ID for the TensorFlow model (replace with your actual file ID)
-MODEL_FILE_ID = '1EpAgsWQSXi7CsUO8mEQDGAJyjdfN0T6n'
-MODEL_DIR = '/content/drive/MyDrive/efficientnet/efficientnet'
-MODEL_PATH = os.path.join(MODEL_DIR, 'best_weights_model.keras')
-
-# Ensure the models directory exists
-if not os.path.exists(MODEL_DIR):
-    os.makedirs(MODEL_DIR)
-
-# Download the model from Google Drive if not already present
-if not os.path.exists(MODEL_PATH):
-    print("Downloading model from Google Drive...")
-    drive_url = f'https://drive.google.com/uc?id={MODEL_FILE_ID}'
-    gdown.download(drive_url, MODEL_PATH, quiet=False)
-    print("Download complete.")
-
-# Load the TensorFlow model
-model = tf.keras.models.load_model(MODEL_PATH)
+logging.basicConfig(level=logging.DEBUG, filename="server.log",
+                    format="%(asctime)s - %(levelname)s - %(message)s")
 
 app = Flask(__name__)
+CORS(app)
+
+# Config model
+MODEL_FILE_ID = "1EpAgsWQSXi7CsUO8mEQDGAJyjdfN0T6n"
+MODEL_FILE_NAME = "best_weights_model.7z"
+MODEL_DIR = "./models"
+MODEL_PATH_7Z = os.path.join(MODEL_DIR, MODEL_FILE_NAME)
+MODEL_EXTRACTED_PATH = os.path.join(MODEL_DIR, "best_weights_model.keras")
+
+def download_and_extract_model():
+    if not os.path.exists(MODEL_EXTRACTED_PATH):
+        logging.info("🧠 Model chưa tồn tại, đang tải từ Google Drive...")
+        os.makedirs(MODEL_DIR, exist_ok=True)
+        url = f"https://drive.google.com/uc?id={MODEL_FILE_ID}"
+        gdown.download(url, MODEL_PATH_7Z, quiet=False)
+        logging.info("✅ Tải model thành công!")
+        logging.info("📦 Đang giải nén model...")
+        with py7zr.SevenZipFile(MODEL_PATH_7Z, mode='r') as archive:
+            archive.extractall(MODEL_DIR)
+        logging.info("✅ Giải nén thành công!")
+
+model = None
+def load_model():
+    global model
+    if model is None:
+        try:
+            download_and_extract_model()
+            logging.info("📦 Đang tải model vào bộ nhớ...")
+            model = tf.keras.models.load_model(MODEL_EXTRACTED_PATH)
+            logging.info("✅ Mô hình đã được load!")
+        except Exception as e:
+            logging.error(f"Lỗi khi tải model: {str(e)}")
+            raise
+
+# Preload model khi khởi động server (nếu có thể)
+with app.app_context():
+    try:
+        load_model()
+        logging.info("✅ Mô hình đã được preload!")
+    except Exception as e:
+        logging.error(f"Lỗi preload model: {str(e)}")
 
 @app.route('/')
 def home():
@@ -44,48 +64,30 @@ def dashboard():
 
 @app.route('/predict', methods=['POST'])
 def predict():
-    # Check if an image file was uploaded
-    if 'file' not in request.files:
-        return jsonify({'error': 'No file part in the request'}), 400
-    
-    file = request.files['file']
-    if file.filename == '':
-        return jsonify({'error': 'No file selected'}), 400
-
     try:
-        # Open the image, convert to RGB and resize to 224x224
-        image = Image.open(file.stream).convert('RGB')
+        # Nếu model không được preload thành công, thử tải lại
+        if model is None:
+            load_model()
+            
+        if 'image' not in request.files:
+            logging.warning("Không có file ảnh được gửi!")
+            return jsonify({'error': 'Không có file ảnh được gửi!'}), 400
+
+        file = request.files['image']
+        if file.filename == '':
+            return jsonify({'error': 'Tên file rỗng!'}), 400
+
+        image = Image.open(file).convert('RGB')
         image = image.resize((224, 224))
-        
-        # Convert image to numpy array and normalize to [0,1]
         img_array = np.array(image) / 255.0
-        
-        # Add batch dimension
         img_array = np.expand_dims(img_array, axis=0)
-        
-        # Make prediction
-        prediction = model.predict(img_array)
-        
-        # Determine class index or value
-        # If model outputs a single probability (binary classification)
-        if prediction.ndim == 1 or (prediction.ndim > 1 and prediction.shape[1] == 1):
-            # Flatten and get first value
-            pred_val = float(np.squeeze(prediction))
-            class_idx = int(pred_val >= 0.5)
-        else:
-            # Multi-class or probability vector
-            class_idx = int(np.argmax(prediction[0]))
-        
-        # Map class index to label
-        classes = ['Non-Nodule', 'Nodule']
-        result = classes[class_idx]
-        
-        return jsonify({'prediction': result})
 
+        predictions = model.predict(img_array)
+        logging.info(f"📊 Kết quả dự đoán: {predictions}")
+        return jsonify({'predictions': predictions.tolist()})
     except Exception as e:
-        # Return any error as JSON
-        return jsonify({'error': str(e)}), 500
+        logging.error(f"Lỗi trong route /predict: {str(e)}")
+        return jsonify({'error': f'Internal Server Error: {str(e)}'}), 500
 
-if __name__ == "__main__":
-    # Run the Flask app
+if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
