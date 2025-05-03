@@ -29,36 +29,36 @@
       Lại Nguyễn Minh Trí - <a href="mailto:laingminhtri@gmail.com">laingminhtri@gmail.com</a> - 0908083566</p>
     </div>
   </div>
-<script>
-  document.getElementById('analyze-button').addEventListener('click', async () => {
-    const fileInput = document.getElementById('upload');
-    if (!fileInput.files.length) {
-      alert('Vui lòng chọn một file!');
-      return;
-    }
-    const formData = new FormData();
-    formData.append('image', fileInput.files[0]);
-
-    const resultMessage = document.getElementById('result-message');
-    resultMessage.innerText = "Đang phân tích...";
-
-    try {
-      const res = await fetch('/predict', {
-        method: 'POST',
-        body: formData
-      });
-      if (!res.ok) {
-        const err = await res.json();
-        resultMessage.innerText = `Lỗi: ${err.error || res.statusText}`;
+  <script>
+    document.getElementById('analyze-button').addEventListener('click', async () => {
+      const fileInput = document.getElementById('upload');
+      if (!fileInput.files.length) {
+        alert('Vui lòng chọn một file!');
         return;
       }
-      const { classification, score } = await res.json();
-      resultMessage.innerText = `Kết quả: ${classification} (score: ${score.toFixed(3)})`;
-    } catch (e) {
-      resultMessage.innerText = `Lỗi mạng: ${e.message}`;
-    }
-  });
-</script>
+      const formData = new FormData();
+      formData.append('image', fileInput.files[0]);
 
+      const resultMessage = document.getElementById('result-message');
+      resultMessage.innerText = "Đang phân tích...";
+
+      try {
+        // Dùng đường dẫn tương đối để gọi API predict (tránh lỗi CORS và Failed to fetch)
+        const res = await fetch('/predict', {
+          method: 'POST',
+          body: formData
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          resultMessage.innerText = `Lỗi: ${err.error || res.statusText}`;
+          return;
+        }
+        const { classification, score } = await res.json();
+        resultMessage.innerText = `Kết quả: ${classification} (score: ${score.toFixed(3)})`;
+      } catch (e) {
+        resultMessage.innerText = `Lỗi mạng: ${e.message}`;
+      }
+    });
+  </script>
 </body>
 </html>
