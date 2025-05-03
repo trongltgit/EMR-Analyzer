@@ -1,7 +1,9 @@
 import os
+import shutil
 import numpy as np
 import tensorflow as tf
 from flask import Flask, request, jsonify, render_template
+from tensorflow.keras.models import load_model
 from flask_cors import CORS
 from PIL import Image
 import gdown
@@ -20,20 +22,41 @@ MODEL_DIR = "./MyDrive/efficientnet/efficientnet"
 MODEL_PATH = os.path.join(MODEL_DIR, MODEL_FILE_NAME)
 MODEL_7Z_DIR = "./models"
 
-def extract_model_from_7z():
-    if not os.path.exists(MODEL_PATH):
-        logging.info("📦 Đang nối và giải nén model từ các file .7z...")
-        part_files = [os.path.join(MODEL_7Z_DIR, f"best_weights_model.7z.00{i}") for i in range(1, 5)]
-        full_archive = os.path.join(MODEL_7Z_DIR, "full_model.7z")
+def assemble_model():
+    global model
+    try:
+        # Đường dẫn đến các file nhỏ
+        small_files = ['models/best_weights_model.7z.001', 'models/best_weights_model.7z.002', 
+                       'models/best_weights_model.7z.003', 'models/best_weights_model.7z.004']
+        # Đường dẫn đến file gốc
+        assembled_file = 'models/best_weights_model.keras'
+        
+        # Nối các file nhỏ thành file gốc
+        with open(assembled_file, 'wb') as outfile:
+            for small_file in small_files:
+                with open(small_file, 'rb') as infile:
+                    shutil.copyfileobj(infile, outfile)
+        
+        # Load model từ file đã nối
+        model = load_model(assembled_file)
+        print("Model loaded successfully from assembled file")
+    except Exception as e:
+        print(f"Failed to assemble or load model: {str(e)}")
+        model = None
+# Gọi hàm assemble_model khi ứng dụng khởi động
+assemble_model()
 
-        with open(full_archive, 'wb') as f_out:
-            for part in part_files:
-                with open(part, 'rb') as f_in:
-                    f_out.write(f_in.read())
-
-        # Giải nén
-        subprocess.run(["7z", "x", full_archive, f"-o{MODEL_DIR}"], check=True)
-        logging.info("✅ Giải nén model thành công!")
+@app.route('/predict', methods=['POST'])
+def predict():
+    try:
+        if model is None:
+            return jsonify({'error': 'Model not loaded'}), 503
+        data = request.get_json()
+        # Giả định logic dự đoán
+        prediction = model.predict(data['input'])
+        return jsonify({'prediction': prediction.tolist()})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 def download_model():
     if not os.path.exists(MODEL_DIR):
