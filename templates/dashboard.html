@@ -31,33 +31,32 @@
     </div>
   </div>
 <script>
-        document.getElementById('predictButton').addEventListener('click', async () => {
-            const input = document.getElementById('imageInput');
-            const file = input.files[0];
+        const analyzeBtn = document.getElementById('analyze-button');
+        analyzeBtn.addEventListener('click', () => {
+            const fileInput = document.getElementById('file-input');
+            const file = fileInput.files[0];
             if (!file) {
-                document.getElementById('result').innerText = 'Please select an image.';
+                document.getElementById('result').innerText = 'Vui lòng chọn một ảnh.';
                 return;
             }
-
             const formData = new FormData();
-            formData.append('image', file);
+            formData.append('file', file);
 
-            try {
-                const response = await fetch(`${window.location.origin}/predict`, {
-                    method: 'POST',
-                    body: formData
-                });
-
-                const data = await response.json();
-
-                if (response.ok) {
-                    document.getElementById('result').innerText = `Result: ${data.result}, Confidence: ${data.confidence}`;
-                } else {
-                    document.getElementById('result').innerText = `Error: ${data.error || 'Prediction failed.'}`;
+            fetch('/predict', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.prediction) {
+                    document.getElementById('result').innerText = 'Kết quả: ' + data.prediction;
+                } else if (data.error) {
+                    document.getElementById('result').innerText = 'Lỗi: ' + data.error;
                 }
-            } catch (error) {
-                document.getElementById('result').innerText = `Fetch error: ${error}`;
-            }
+            })
+            .catch(error => {
+                document.getElementById('result').innerText = 'Lỗi: ' + error;
+            });
         });
 </script>
 </body>
