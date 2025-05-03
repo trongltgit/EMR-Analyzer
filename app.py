@@ -94,7 +94,14 @@ def dashboard():
 
 @app.route('/predict', methods=['POST'])
 def predict():
-    try:
+   
+  try:
+        # Logic xử lý yêu cầu
+        return jsonify({'classification': 'result', 'score': 0.95})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+  
+  try:
         if model is None:
             load_model()
 
