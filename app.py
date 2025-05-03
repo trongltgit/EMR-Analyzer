@@ -5,37 +5,70 @@ from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
 from PIL import Image
 import gdown
+import py7zr
 import logging
 
 logging.basicConfig(level=logging.DEBUG, filename="server.log",
                     format="%(asctime)s - %(levelname)s - %(message)s")
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, resources={r"/*": {"origins": "*"}})  # Cho phép tất cả origins
 
-# Config model: dùng trực tiếp file .keras
-MODEL_FILE_ID = "1EpAgsWQSXi7CsUO8mEQDGAJyjdfN0T6n"   # <-- thay bằng ID file .keras
+# Config model
+MODEL_FILE_ID = "1EpAgsWQSXi7CsUO8mEQDGAJyjdfN0T6n"  # ID file .keras trên Google Drive
 MODEL_FILE_NAME = "best_weights_model.keras"
 MODEL_DIR = "./MyDrive/efficientnet/efficientnet"
 MODEL_PATH = os.path.join(MODEL_DIR, MODEL_FILE_NAME)
+SPLIT_FILES_DIR = "./models"  # Thư mục chứa các file nén .7z.001, .7z.002, ...
 
-def download_model():
-    """Nếu chưa có model, tải về từ Drive."""
+def download_model_from_drive():
+    """Tải model từ Google Drive nếu chưa có."""
     if not os.path.exists(MODEL_DIR):
         os.makedirs(MODEL_DIR, exist_ok=True)
     if not os.path.isfile(MODEL_PATH):
         logging.info("🧠 Model chưa tồn tại, đang tải từ Google Drive...")
         url = f"https://drive.google.com/uc?id={MODEL_FILE_ID}"
-        # tải trực tiếp file .keras
         gdown.download(url, MODEL_PATH, quiet=False)
-        logging.info("✅ Tải model thành công!")
+        logging.info("✅ Tải model từ Google Drive thành công!")
+
+def assemble_model_from_split_files():
+    """Nối các file nén .7z.001, .7z.002, ... thành file .keras."""
+    if not os.path.exists(MODEL_DIR):
+        os.makedirs(MODEL_DIR, exist_ok=True)
+    if not os.path.isfile(MODEL_PATH):
+        split_files = [os.path.join(SPLIT_FILES_DIR, f"best_weights_model.7z.{i:03d}") 
+                       for i in range(1, 5)]  # Giả sử có 4 file: .001, .002, .003, .004
+        if all(os.path.isfile(f) for f in split_files):
+            logging.info("🧠 Tìm thấy các file nén, đang giải nén và nối...")
+            archive_path = os.path.join(MODEL_DIR, "best_weights_model.7z")
+            # Nối file thủ công
+            with open(archive_path, 'wb') as outfile:
+                for split_file in split_files:
+                    with open(split_file, 'rb') as infile:
+                        outfile.write(infile.read())
+            # Giải nén
+            with py7zr.SevenZipFile(archive_path, mode='r') as archive:
+                archive.extractall(path=MODEL_DIR)
+            os.remove(archive_path)  # Xóa file nén tạm thời
+            logging.info("✅ Đã nối và giải nén model thành công!")
+        else:
+            logging.warning("Không tìm thấy đủ các file nén trong thư mục models!")
+
+def prepare_model():
+    """Chuẩn bị model: ưu tiên nối file nén, nếu không thì tải từ Drive."""
+    if not os.path.isfile(MODEL_PATH):
+        try:
+            assemble_model_from_split_files()
+        except Exception as e:
+            logging.error(f"Lỗi khi nối file nén: {e}")
+            download_model_from_drive()
 
 model = None
 def load_model():
     global model
     if model is None:
         try:
-            download_model()
+            prepare_model()
             logging.info("📦 Đang load model vào bộ nhớ...")
             model = tf.keras.models.load_model(MODEL_PATH)
             logging.info("✅ Mô hình đã được load!")
@@ -78,7 +111,6 @@ def predict():
 
         preds = model.predict(x)[0][0]
         logging.info(f"📊 Kết quả dự đoán: {preds}")
-        # thresholds 0.5
         cls = 'Nodule' if preds > 0.5 else 'Non-Nodule'
         return jsonify({'classification': cls, 'score': float(preds)})
     except Exception as e:
