@@ -14,9 +14,9 @@ app = Flask(__name__)
 CORS(app)
 
 # Config model: dùng trực tiếp file .keras
-MODEL_FILE_ID = "YOUR_DRIVE_FILE_ID_HERE"   # <-- thay bằng ID file .keras
+MODEL_FILE_ID = "1EpAgsWQSXi7CsUO8mEQDGAJyjdfN0T6n"   # <-- thay bằng ID file .keras
 MODEL_FILE_NAME = "best_weights_model.keras"
-MODEL_DIR = "./models"
+MODEL_DIR = "./MyDrive/efficientnet/efficientnet"
 MODEL_PATH = os.path.join(MODEL_DIR, MODEL_FILE_NAME)
 
 def download_model():
