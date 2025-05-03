@@ -7,7 +7,6 @@ from tensorflow.keras.models import load_model
 from flask_cors import CORS
 from PIL import Image
 import gdown
-import subprocess
 import logging
 
 logging.basicConfig(level=logging.DEBUG, filename="server.log",
@@ -22,41 +21,25 @@ MODEL_DIR = "./MyDrive/efficientnet/efficientnet"
 MODEL_PATH = os.path.join(MODEL_DIR, MODEL_FILE_NAME)
 MODEL_7Z_DIR = "./models"
 
+model = None
+
 def assemble_model():
     global model
     try:
-        # Đường dẫn đến các file nhỏ
         small_files = ['models/best_weights_model.7z.001', 'models/best_weights_model.7z.002', 
                        'models/best_weights_model.7z.003', 'models/best_weights_model.7z.004']
-        # Đường dẫn đến file gốc
         assembled_file = 'models/best_weights_model.keras'
         
-        # Nối các file nhỏ thành file gốc
         with open(assembled_file, 'wb') as outfile:
             for small_file in small_files:
                 with open(small_file, 'rb') as infile:
                     shutil.copyfileobj(infile, outfile)
         
-        # Load model từ file đã nối
         model = load_model(assembled_file)
-        print("Model loaded successfully from assembled file")
+        logging.info("Model loaded successfully from assembled file")
     except Exception as e:
-        print(f"Failed to assemble or load model: {str(e)}")
+        logging.error(f"Failed to assemble or load model: {str(e)}")
         model = None
-# Gọi hàm assemble_model khi ứng dụng khởi động
-assemble_model()
-
-@app.route('/predict', methods=['POST'])
-def predict():
-    try:
-        if model is None:
-            return jsonify({'error': 'Model not loaded'}), 503
-        data = request.get_json()
-        # Giả định logic dự đoán
-        prediction = model.predict(data['input'])
-        return jsonify({'prediction': prediction.tolist()})
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
 
 def download_model():
     if not os.path.exists(MODEL_DIR):
@@ -69,16 +52,19 @@ def download_model():
             logging.info("✅ Tải model từ Drive thành công!")
         except Exception as e:
             logging.warning(f"⚠️ Không tải được từ Drive: {e}")
-            extract_model_from_7z()
+            assemble_model()
 
-model = None
 def load_model():
     global model
     if model is None:
         download_model()
-        logging.info("🚀 Đang load model...")
-        model = tf.keras.models.load_model(MODEL_PATH)
-        logging.info("✅ Model đã được load vào bộ nhớ!")
+        if model is None and os.path.isfile(MODEL_PATH):
+            logging.info("🚀 Đang load model từ đường dẫn cục bộ...")
+            try:
+                model = tf.keras.models.load_model(MODEL_PATH)
+                logging.info("✅ Model đã được load vào bộ nhớ!")
+            except Exception as e:
+                logging.error(f"Lỗi khi load model: {e}")
 
 with app.app_context():
     try:
@@ -99,6 +85,8 @@ def predict():
     try:
         if model is None:
             load_model()
+            if model is None:
+                return jsonify({'error': 'Model not loaded'}), 503
 
         if 'image' not in request.files:
             return jsonify({'error': 'Không có file ảnh!'}), 400
