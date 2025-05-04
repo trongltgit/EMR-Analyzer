@@ -35,7 +35,8 @@
     <button id="ping-btn">Ping Server</button>
     <div id="ping-result"></div>
   </div>
-  <script>
+  
+<script>
     document.getElementById("analyze-button").addEventListener("click", async () => {
       const fileInput = document.getElementById("upload");
       if (!fileInput.files.length) {
@@ -44,6 +45,8 @@
       }
       const formData = new FormData();
       formData.append("image", fileInput.files[0]);
+      console.log("Sending file:", fileInput.files[0]);
+
       const resultMessage = document.getElementById("result-message");
       resultMessage.innerText = "Analyzing...";
       try {
@@ -71,5 +74,6 @@
       }
     });
   </script>
+  
 </body>
 </html>
