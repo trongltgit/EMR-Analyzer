@@ -16,7 +16,7 @@ logging.basicConfig(
 )
 
 # Khởi tạo Flask app
-app = Flask(__name__)
+app = Flask(__name__, template_folder="templates")
 CORS(app, origins=["*"])  # Cho phép mọi nguồn gốc, có thể tùy chỉnh nếu cần.
 
 # Đường dẫn và biến toàn cục
@@ -93,6 +93,16 @@ def home():
         return render_template('index.html')
     except Exception as e:
         logging.error(f"❌ Error rendering home page: {e}", exc_info=True)
+        return jsonify({'error': 'Internal server error', 'details': str(e)}), 500
+
+# Route dashboard
+@app.route('/dashboard')
+def dashboard():
+    try:
+        logging.info("Rendering dashboard.html for the dashboard route.")
+        return render_template('dashboard.html')
+    except Exception as e:
+        logging.error(f"❌ Error rendering dashboard page: {e}", exc_info=True)
         return jsonify({'error': 'Internal server error', 'details': str(e)}), 500
 
 # Route kiểm tra trạng thái server
