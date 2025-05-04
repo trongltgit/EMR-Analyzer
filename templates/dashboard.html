@@ -34,43 +34,38 @@
     <div id="ping-result"></div>
   </div>
 <script>
-    document.getElementById("analyze-button").addEventListener("click", async () => {
-      const fileInput = document.getElementById("upload");
-      if (!fileInput.files.length) {
-        alert("Vui lòng chọn một tệp!");
-        return;
-      }
+  document.getElementById("analyze-button").addEventListener("click", async () => {
+    const fileInput = document.getElementById("upload");
+    if (!fileInput.files.length) {
+      alert("Vui lòng chọn một tệp!");
+      return;
+    }
 
-      const formData = new FormData();
-      formData.append("image", fileInput.files[0]);
+    const formData = new FormData();
+    formData.append("image", fileInput.files[0]);
 
-      const resultMessage = document.getElementById("result-message");
-      resultMessage.innerText = "Đang phân tích...";
+    const resultMessage = document.getElementById("result-message");
+    resultMessage.innerText = "Đang phân tích...";
 
-      try {
-        const res = await fetch("/predict", { method: "POST", body: formData });
-        if (!res.ok) {
+    try {
+      const res = await fetch("/predict", { method: "POST", body: formData });
+      if (!res.ok) {
+        const contentType = res.headers.get("content-type");
+        if (contentType && contentType.indexOf("application/json") !== -1) {
           const errorData = await res.json();
           resultMessage.innerText = `Lỗi: ${errorData.error || res.statusText}`;
-          return;
+        } else {
+          const errorText = await res.text();
+          resultMessage.innerText = `Lỗi không xác định: ${errorText}`;
         }
-        const data = await res.json();
-        resultMessage.innerText = `Kết quả: ${data.classification} (điểm số: ${data.score.toFixed(3)})`;
-      } catch (e) {
-        resultMessage.innerText = `Lỗi mạng: ${e.message}`;
+        return;
       }
-    });
-
-    document.getElementById("ping-btn").addEventListener("click", async () => {
-      const pingResult = document.getElementById("ping-result");
-      try {
-        const res = await fetch("/ping");
-        const data = await res.json();
-        pingResult.innerText = "Ping thành công: " + JSON.stringify(data);
-      } catch (e) {
-        pingResult.innerText = "Ping thất bại: " + e.message;
-      }
-    });
-  </script>
+      const data = await res.json();
+      resultMessage.innerText = `Kết quả: ${data.classification} (điểm số: ${data.score.toFixed(3)})`;
+    } catch (e) {
+      resultMessage.innerText = `Lỗi mạng: ${e.message}`;
+    }
+  });
+</script>
 </body>
 </html>
