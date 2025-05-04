@@ -35,6 +35,7 @@ def assemble_model_parts():
         with open(ASSEMBLED_MODEL, 'wb') as assembled_file:
             for part in MODEL_PARTS:
                 if not os.path.exists(part):
+                    logging.error(f"Missing model part: {part}")
                     raise FileNotFoundError(f"Missing part: {part}")
                 with open(part, 'rb') as part_file:
                     shutil.copyfileobj(part_file, assembled_file)
@@ -98,26 +99,33 @@ def dashboard():
 @app.route('/predict', methods=['POST'])
 def predict():
     try:
+        # Check if model is loaded
         if model is None:
+            logging.warning("Model is not loaded in memory, attempting to load model.")
             load_model_into_memory()
 
+        # Check if image file exists in the request
         if 'image' not in request.files:
-            logging.error("No image file in request.")
+            logging.error("No image file found in the request.")
             return jsonify({'error': 'No image file provided!'}), 400
 
         file = request.files['image']
         if file.filename == '':
-            logging.error("Empty filename.")
+            logging.error("Empty filename provided in the request.")
             return jsonify({'error': 'Empty filename!'}), 400
 
+        logging.info("Processing image for prediction...")
         img = Image.open(file).convert('RGB').resize((224, 224))
         x = np.expand_dims(np.array(img) / 255.0, axis=0)
         img.close()
 
+        # Make prediction
+        logging.info("Making prediction with the model...")
         preds = model.predict(x)[0][0]
         cls = 'Nodule' if preds > 0.5 else 'Non-Nodule'
-        logging.info(f"Prediction successful: {cls} (score: {preds})")
+        logging.info(f"Prediction successful: Class - {cls}, Score - {preds}")
         return jsonify({'classification': cls, 'score': float(preds)})
+
     except Exception as e:
         logging.error(f"❌ Prediction error: {str(e)}", exc_info=True)
         return jsonify({'error': f'Error processing image or prediction: {str(e)}'}), 500
@@ -126,6 +134,18 @@ def predict():
 @app.route('/ping', methods=['GET'])
 def ping():
     return jsonify({'message': 'Server is running!'}), 200
+
+
+@app.route('/model-status', methods=['GET'])
+def model_status():
+    try:
+        if model is not None:
+            return jsonify({'status': 'Model is loaded successfully'}), 200
+        else:
+            return jsonify({'status': 'Model is not loaded'}), 503
+    except Exception as e:
+        logging.error(f"Error checking model status: {e}")
+        return jsonify({'error': str(e)}), 500
 
 
 if __name__ == '__main__':
