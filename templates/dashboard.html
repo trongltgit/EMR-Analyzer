@@ -10,7 +10,6 @@
     .file-upload-container { margin-top: 20px; }
     #result-message { margin-top: 20px; font-size: 1.5rem; text-align: center; }
     .contact { margin-top: 30px; font-size: 14px; }
-    /* Thêm một nút ping để kiểm tra máy chủ */
     #ping-btn { margin-top: 20px; padding: 10px 20px; background: #2e7d32; color: #fff; border: none; border-radius: 5px; cursor: pointer; }
     #ping-result { margin-top: 10px; font-size: 1rem; text-align: center; }
   </style>
@@ -31,35 +30,33 @@
          159 Nam Kỳ Khởi Nghĩa, Quận 3, Tp. Hồ Chí Minh<br>
          Lại Nguyễn Minh Trí - <a href="mailto:laingminhtri@gmail.com">laingminhtri@gmail.com</a> - 0908083566</p>
     </div>
-    <!-- Nút để test endpoint ping -->
     <button id="ping-btn">Ping Server</button>
     <div id="ping-result"></div>
   </div>
   
-<script>
+  <script>
     document.getElementById("analyze-button").addEventListener("click", async () => {
       const fileInput = document.getElementById("upload");
       if (!fileInput.files.length) {
-        alert("Please select a file!");
+        alert("Vui lòng chọn một tệp!");
         return;
       }
       const formData = new FormData();
       formData.append("image", fileInput.files[0]);
-      console.log("Sending file:", fileInput.files[0]);
 
       const resultMessage = document.getElementById("result-message");
-      resultMessage.innerText = "Analyzing...";
+      resultMessage.innerText = "Đang phân tích...";
       try {
         const res = await fetch("/predict", { method: "POST", body: formData });
         if (!res.ok) {
           const errorData = await res.json();
-          resultMessage.innerText = `Error: ${errorData.error || res.statusText}`;
+          resultMessage.innerText = `Lỗi: ${errorData.error || res.statusText}`;
           return;
         }
         const data = await res.json();
-        resultMessage.innerText = `Result: ${data.classification} (score: ${data.score.toFixed(3)})`;
+        resultMessage.innerText = `Kết quả: ${data.classification} (điểm số: ${data.score.toFixed(3)})`;
       } catch (e) {
-        resultMessage.innerText = `Network error: ${e.message}`;
+        resultMessage.innerText = `Lỗi mạng: ${e.message}`;
       }
     });
 
@@ -68,12 +65,11 @@
       try {
         const res = await fetch("/ping");
         const data = await res.json();
-        pingResult.innerText = "Ping OK: " + JSON.stringify(data);
+        pingResult.innerText = "Ping thành công: " + JSON.stringify(data);
       } catch (e) {
-        pingResult.innerText = "Ping failed: " + e.message;
+        pingResult.innerText = "Ping thất bại: " + e.message;
       }
     });
   </script>
-  
 </body>
 </html>
