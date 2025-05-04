@@ -14,15 +14,15 @@ logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(message)s"
 )
 
-# Initialize Flask app
+# Flask app initialization
 app = Flask(__name__, template_folder="templates", static_folder="static")
-CORS(app)  # Allow CORS for all origins
+CORS(app)
 
 # Google Drive File ID and Model Path
-file_id = "1EpAgsWQSXi7CsUO8mEQDGAJyjdfN0T6n"
+file_id = "1EpAgsWQSXi7CsUO8mEQDGAJyjdfN0T6n"  # Update this with the correct file ID
 model_path = "./best_weights_model.keras"
 
-# Download the model file from Google Drive if it doesn't exist
+# Download model file from Google Drive if not present
 def download_model():
     if not os.path.exists(model_path):
         url = f"https://drive.google.com/uc?id={file_id}"
@@ -80,5 +80,5 @@ def predict():
 
 # Run the app
 if __name__ == '__main__':
-    port = int(os.environ.get("PORT", 5000))
+    port = int(os.environ.get("PORT", 5000))  # Get the port from the environment variable
     app.run(host='0.0.0.0', port=port)
