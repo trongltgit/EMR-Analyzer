@@ -84,27 +84,16 @@ try:
 except Exception as e:
     logging.error(f"❌ Model initialization failed: {e}")
 
-@app.route('/model-status', methods=['GET'])
-def model_status():
-    try:
-        if model is not None:
-            return jsonify({'status': 'Model is loaded successfully'}), 200
-        else:
-            return jsonify({'status': 'Model is not loaded'}), 503
-    except Exception as e:
-        logging.error(f"Error checking model status: {e}")
-        return jsonify({'error': str(e)}), 500
-
 
 # Flask Routes
 @app.route('/')
 def home():
-    return render_template('index.html')
+    return render_templates('index.html')
 
 
 @app.route('/dashboard')
 def dashboard():
-    return render_template('dashboard.html')
+    return render_templates('dashboard.html')
 
 
 @app.route('/predict', methods=['POST'])
@@ -147,8 +136,8 @@ def ping():
     return jsonify({'message': 'Server is running!'}), 200
 
 
-@app.route('/model-status', methods=['GET'])
-def model_status():
+@app.route('/model-status', methods=['GET'], endpoint="model_status_check")
+def model_status_check():
     try:
         if model is not None:
             return jsonify({'status': 'Model is loaded successfully'}), 200
