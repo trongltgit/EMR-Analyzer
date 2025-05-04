@@ -48,82 +48,82 @@ best_model = load_model(model_path)
 print("Model loaded successfully!")
 
 
+urllib.request.urlretrieve("https://raw.githubusercontent.com/trongltgit/EMR-Analyzer/refs/heads/main/templates/dashboard.html", "/content/uploader.html")
 
 
 
 
 
+# # Đường dẫn và biến toàn cục
+# MODEL_DIR = "./models"
+# ASSEMBLED_MODEL = os.path.join(MODEL_DIR, "best_weights_model.7z")
+# MODEL_PATH = os.path.join(MODEL_DIR, "best_weights_model.keras")
+# MODEL_PARTS = [
+#     os.path.join(MODEL_DIR, f"best_weights_model.7z.{str(i).zfill(3)}")
+#     for i in range(1, 5)
+# ]
+# model = None
 
-# Đường dẫn và biến toàn cục
-MODEL_DIR = "./models"
-ASSEMBLED_MODEL = os.path.join(MODEL_DIR, "best_weights_model.7z")
-MODEL_PATH = os.path.join(MODEL_DIR, "best_weights_model.keras")
-MODEL_PARTS = [
-    os.path.join(MODEL_DIR, f"best_weights_model.7z.{str(i).zfill(3)}")
-    for i in range(1, 5)
-]
-model = None
+# # Tạo thư mục nếu chưa tồn tại
+# if not os.path.exists(MODEL_DIR):
+#     os.makedirs(MODEL_DIR)
+#     logging.info(f"📁 Created directory: {MODEL_DIR}")
 
-# Tạo thư mục nếu chưa tồn tại
-if not os.path.exists(MODEL_DIR):
-    os.makedirs(MODEL_DIR)
-    logging.info(f"📁 Created directory: {MODEL_DIR}")
+# # Hàm hợp nhất các tệp .7z
+# def assemble_model_parts():
+#     try:
+#         logging.info(f"Assembling model parts: {MODEL_PARTS}")
+#         with open(ASSEMBLED_MODEL, 'wb') as assembled_file:
+#             for part in MODEL_PARTS:
+#                 if not os.path.exists(part):
+#                     logging.error(f"❌ Missing model part: {part}")
+#                     raise FileNotFoundError(f"Missing part: {part}")
+#                 with open(part, 'rb') as part_file:
+#                     shutil.copyfileobj(part_file, assembled_file)
+#         logging.info("✅ Successfully assembled model parts into a single .7z file.")
+#     except Exception as e:
+#         logging.error(f"❌ Failed to assemble model parts: {e}", exc_info=True)
+#         raise
 
-# Hàm hợp nhất các tệp .7z
-def assemble_model_parts():
-    try:
-        logging.info(f"Assembling model parts: {MODEL_PARTS}")
-        with open(ASSEMBLED_MODEL, 'wb') as assembled_file:
-            for part in MODEL_PARTS:
-                if not os.path.exists(part):
-                    logging.error(f"❌ Missing model part: {part}")
-                    raise FileNotFoundError(f"Missing part: {part}")
-                with open(part, 'rb') as part_file:
-                    shutil.copyfileobj(part_file, assembled_file)
-        logging.info("✅ Successfully assembled model parts into a single .7z file.")
-    except Exception as e:
-        logging.error(f"❌ Failed to assemble model parts: {e}", exc_info=True)
-        raise
+# # Hàm giải nén tệp .7z
+# def extract_model():
+#     try:
+#         logging.info(f"Extracting model from {ASSEMBLED_MODEL}")
+#         with py7zr.SevenZipFile(ASSEMBLED_MODEL, mode='r') as archive:
+#             archive.extractall(path=MODEL_DIR)
+#         logging.info("✅ Successfully extracted model .keras file.")
+#     except Exception as e:
+#         logging.error(f"❌ Failed to extract model: {e}", exc_info=True)
+#         raise
 
-# Hàm giải nén tệp .7z
-def extract_model():
-    try:
-        logging.info(f"Extracting model from {ASSEMBLED_MODEL}")
-        with py7zr.SevenZipFile(ASSEMBLED_MODEL, mode='r') as archive:
-            archive.extractall(path=MODEL_DIR)
-        logging.info("✅ Successfully extracted model .keras file.")
-    except Exception as e:
-        logging.error(f"❌ Failed to extract model: {e}", exc_info=True)
-        raise
+# # Hàm chuẩn bị mô hình
+# def prepare_model():
+#     try:
+#         if not os.path.exists(MODEL_PATH):  # Chỉ thực hiện nếu file .keras chưa tồn tại
+#             if not os.path.exists(ASSEMBLED_MODEL):
+#                 assemble_model_parts()
+#             extract_model()
+#     except Exception as e:
+#         logging.error(f"❌ Error in prepare_model: {e}", exc_info=True)
+#         raise
 
-# Hàm chuẩn bị mô hình
-def prepare_model():
-    try:
-        if not os.path.exists(MODEL_PATH):  # Chỉ thực hiện nếu file .keras chưa tồn tại
-            if not os.path.exists(ASSEMBLED_MODEL):
-                assemble_model_parts()
-            extract_model()
-    except Exception as e:
-        logging.error(f"❌ Error in prepare_model: {e}", exc_info=True)
-        raise
+# # Hàm tải mô hình vào bộ nhớ
+# def load_model():
+#     global model
+#     try:
+#         prepare_model()
+#         logging.info("🚀 Loading model into memory...")
+#         model = tf.keras.models.load_model(MODEL_PATH)
+#         logging.info("✅ Model loaded successfully!")
+#     except Exception as e:
+#         logging.error(f"❌ Error loading model: {e}", exc_info=True)
+#         raise
 
-# Hàm tải mô hình vào bộ nhớ
-def load_model():
-    global model
-    try:
-        prepare_model()
-        logging.info("🚀 Loading model into memory...")
-        model = tf.keras.models.load_model(MODEL_PATH)
-        logging.info("✅ Model loaded successfully!")
-    except Exception as e:
-        logging.error(f"❌ Error loading model: {e}", exc_info=True)
-        raise
-
-# Tải mô hình khi khởi động ứng dụng
-try:
-    load_model()
-except Exception as e:
-    logging.error(f"❌ Model initialization failed: {e}")
+# # Tải mô hình khi khởi động ứng dụng
+# try:
+#     load_model()
+# except Exception as e:
+#     logging.error(f"❌ Model initialization failed: {e}")
 
 # Route home
 @app.route('/')
@@ -198,6 +198,45 @@ def predict():
     except Exception as e:
         logging.error(f"❌ Unexpected error in /predict: {e}", exc_info=True)
         return jsonify({'error': f'Internal Server Error: {str(e)}'}), 500
+
+
+
+# Define Flask routes
+@app.route("/")
+def index():
+    return Path('/content/uploader.html').read_text()
+
+@app.route("/upload_file", methods=["POST"])
+def upload_file():
+    if 'file' not in request.files:
+        return 'No file part'
+
+    file = request.files['file']
+
+    if file.filename == '':
+        return 'No selected file'
+
+    if file:
+        image_path = '/content/' + file.filename
+        file.save(image_path)  # Save the file to a folder named 'uploads'
+
+        # Đọc ảnh và chuyển về kích thước mong muốn (240x240 trong trường hợp này)
+        image = cv2.imread(image_path)
+        image = cv2.resize(image, (240, 240))
+        image = np.expand_dims(image, axis=0)  # Thêm chiều batch
+
+        # Chuẩn hóa dữ liệu (nếu cần)
+        # image = image / 255.0
+
+        # Dự đoán nhãn
+        prediction = best_model.predict(image)
+        binary_prediction = np.round(prediction)
+
+        return json.dumps(binary_prediction.tolist())
+
+    return 'Error uploading file'
+
+
 
 # Chạy ứng dụng
 if __name__ == '__main__':
