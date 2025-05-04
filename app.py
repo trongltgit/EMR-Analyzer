@@ -6,9 +6,8 @@ from flask import Flask, request, jsonify, render_template
 from tensorflow.keras.models import load_model
 from flask_cors import CORS
 from PIL import Image
-import gdown
 import logging
-from retrying import retry
+import py7zr  # Thư viện để giải nén .7z
 
 logging.basicConfig(level=logging.DEBUG, filename="server.log",
                     format="%(asctime)s - %(levelname)s - %(message)s")
@@ -18,54 +17,71 @@ app = Flask(__name__)
 CORS(app, origins=["*"])  # Allow all origins (adjust if needed in production)
 
 # Constants for model management
-MODEL_FILE_ID = "1EpAgsWQSXi7CsUO8mEQDGAJyjdfN0T6n"
-MODEL_FILE_NAME = "best_weights_model.keras"
-MODEL_DIR = "./content/drive/MyDrive/efficientnet/efficientnet"
-MODEL_PATH = os.path.join(MODEL_DIR, MODEL_FILE_NAME)
+MODEL_DIR = "./models"
+ASSEMBLED_MODEL = os.path.join(MODEL_DIR, "best_weights_model.7z")
+MODEL_PATH = os.path.join(MODEL_DIR, "best_weights_model.keras")
+MODEL_PARTS = [
+    os.path.join(MODEL_DIR, f"best_weights_model.7z.{str(i).zfill(3)}")
+    for i in range(1, 5)
+]
 
 model = None  # Global model variable
 
 
-# Function to retry downloading the model
-@retry(stop_max_attempt_number=3, wait_fixed=2000)
-def download_model_gdown(url, output):
-    gdown.download(url, output, quiet=False)
+# Function to assemble the split .7z files into a single file
+def assemble_model_parts():
+    try:
+        logging.info(f"Assembling model parts: {MODEL_PARTS}")
+        with open(ASSEMBLED_MODEL, 'wb') as assembled_file:
+            for part in MODEL_PARTS:
+                if not os.path.exists(part):
+                    raise FileNotFoundError(f"Missing part: {part}")
+                with open(part, 'rb') as part_file:
+                    shutil.copyfileobj(part_file, assembled_file)
+        logging.info("✅ Successfully assembled model parts into a single .7z file.")
+    except Exception as e:
+        logging.error(f"❌ Failed to assemble model parts: {e}")
+        raise
 
 
-# Function to ensure the model is downloaded and loaded
-def download_model():
-    if not os.path.exists(MODEL_DIR):
-        os.makedirs(MODEL_DIR, exist_ok=True)
-    if not os.path.isfile(MODEL_PATH):
-        try:
-            logging.info("Downloading model from Google Drive...")
-            url = f"https://drive.google.com/uc?id={MODEL_FILE_ID}"
-            download_model_gdown(url, MODEL_PATH)
-            logging.info("Model downloaded successfully!")
-        except Exception as e:
-            logging.error(f"Failed to download model: {e}")
-            raise
+# Function to extract the .7z archive to get the .keras file
+def extract_model():
+    try:
+        logging.info(f"Extracting model from {ASSEMBLED_MODEL}")
+        with py7zr.SevenZipFile(ASSEMBLED_MODEL, mode='r') as archive:
+            archive.extractall(path=MODEL_DIR)
+        logging.info("✅ Successfully extracted model .keras file.")
+    except Exception as e:
+        logging.error(f"❌ Failed to extract model: {e}")
+        raise
+
+
+# Function to ensure the model is ready to use
+def prepare_model():
+    if not os.path.exists(MODEL_PATH):
+        if not os.path.exists(ASSEMBLED_MODEL):
+            assemble_model_parts()
+        extract_model()
 
 
 # Function to load the model into memory
 def load_model_into_memory():
     global model
-    if model is None:
-        try:
-            download_model()
-            logging.info("Loading model from local path...")
-            model = tf.keras.models.load_model(MODEL_PATH)
-            logging.info("Model loaded successfully!")
-        except Exception as e:
-            logging.error(f"Error loading model: {e}")
-            raise
+    try:
+        prepare_model()
+        logging.info("🚀 Loading model into memory...")
+        model = tf.keras.models.load_model(MODEL_PATH)
+        logging.info("✅ Model loaded successfully!")
+    except Exception as e:
+        logging.error(f"❌ Error loading model: {e}")
+        raise
 
 
 # Load model at startup
 try:
     load_model_into_memory()
 except Exception as e:
-    logging.error(f"Model initialization failed: {e}")
+    logging.error(f"❌ Model initialization failed: {e}")
 
 
 # Flask Routes
@@ -86,10 +102,12 @@ def predict():
             load_model_into_memory()
 
         if 'image' not in request.files:
+            logging.error("No image file in request.")
             return jsonify({'error': 'No image file provided!'}), 400
 
         file = request.files['image']
         if file.filename == '':
+            logging.error("Empty filename.")
             return jsonify({'error': 'Empty filename!'}), 400
 
         img = Image.open(file).convert('RGB').resize((224, 224))
@@ -98,9 +116,10 @@ def predict():
 
         preds = model.predict(x)[0][0]
         cls = 'Nodule' if preds > 0.5 else 'Non-Nodule'
+        logging.info(f"Prediction successful: {cls} (score: {preds})")
         return jsonify({'classification': cls, 'score': float(preds)})
     except Exception as e:
-        logging.error(f"Prediction error: {str(e)}", exc_info=True)
+        logging.error(f"❌ Prediction error: {str(e)}", exc_info=True)
         return jsonify({'error': f'Error processing image or prediction: {str(e)}'}), 500
 
 
