@@ -16,7 +16,7 @@ logging.basicConfig(
 )
 
 # Khởi tạo Flask app
-app = Flask(__name__, template_folder="templates")
+app = Flask(__name__, template_folder="templates", static_folder="static")
 CORS(app, origins=["*"])  # Cho phép mọi nguồn gốc, có thể tùy chỉnh nếu cần.
 
 # Đường dẫn và biến toàn cục
