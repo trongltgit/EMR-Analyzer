@@ -130,10 +130,12 @@ def model_status():
 @app.route('/predict', methods=['POST'])
 def predict():
     try:
+        # Kiểm tra nếu model chưa được load
         if model is None:
             logging.warning("Model is not loaded in memory, attempting to load model.")
             load_model_into_memory()
 
+        # Kiểm tra file ảnh trong request
         if 'image' not in request.files:
             logging.error("No image file found in the request.")
             return jsonify({'error': 'No image file provided!'}), 400
@@ -143,11 +145,13 @@ def predict():
             logging.error("Empty filename provided in the request.")
             return jsonify({'error': 'Empty filename!'}), 400
 
+        # Xử lý ảnh
         logging.info("Processing image for prediction...")
         img = Image.open(file).convert('RGB').resize((224, 224))
         x = np.expand_dims(np.array(img) / 255.0, axis=0)
         img.close()
 
+        # Thực hiện dự đoán
         logging.info("Making prediction with the model...")
         preds = model.predict(x)[0][0]
         cls = 'Nodule' if preds > 0.5 else 'Non-Nodule'
@@ -155,7 +159,7 @@ def predict():
         return jsonify({'classification': cls, 'score': float(preds)})
     except Exception as e:
         logging.error(f"❌ Prediction error: {e}", exc_info=True)
-        return jsonify({'error': f'Error processing image or prediction: {str(e)}'}), 500
+        return jsonify({'error': f'Internal Server Error: {str(e)}'}), 500
 
 # Chạy ứng dụng
 if __name__ == '__main__':
