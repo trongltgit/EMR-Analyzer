@@ -1,12 +1,21 @@
 import os
+import threading
+import json
 import logging
 import shutil
+import cv2
 import numpy as np
+from pathlib import Path
 import tensorflow as tf
 from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
 from PIL import Image
 import py7zr  # Thư viện để giải nén .7z
+from tensorflow.keras.models import load_model
+import matplotlib.pyplot as plt
+from PIL import Image
+import urllib.request
+import gdown
 
 # Cấu hình logging
 logging.basicConfig(
@@ -18,6 +27,32 @@ logging.basicConfig(
 # Khởi tạo Flask app
 app = Flask(__name__, template_folder="templates", static_folder="static")
 CORS(app)  # Cho phép mọi nguồn gốc truy cập
+
+
+
+# Đường dẫn lưu file sau khi tải xuống
+output_path = "./models/best_weights_model.keras"
+
+# File ID của file trên Google Drive
+file_id = "1EpAgsWQSXi7CsUO8mEQDGAJyjdfN0T6n"
+
+# URL tải file từ Google Drive
+url = f"https://drive.google.com/uc?id={file_id}"
+
+# Tải file
+try:
+    print(f"Downloading file from Google Drive ID: {file_id}")
+    gdown.download(url, output_path, quiet=False)
+    print(f"File downloaded successfully and saved to {output_path}")
+except Exception as e:
+    print(f"❌ Error downloading file: {e}")
+
+
+
+
+
+
+
 
 # Đường dẫn và biến toàn cục
 MODEL_DIR = "./models"
