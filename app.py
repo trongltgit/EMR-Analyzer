@@ -157,53 +157,53 @@ def model_status():
         return jsonify({'error': str(e)}), 500
 
 # Route dự đoán
-@app.route('/predict', methods=['POST'])
-def predict():
-    try:
-        if model is None:
-            logging.warning("Model is not loaded, attempting to reload.")
-            load_model()
+# @app.route('/predict', methods=['POST'])
+# def predict():
+#     try:
+#         if model is None:
+#             logging.warning("Model is not loaded, attempting to reload.")
+#             load_model()
 
-        # Check if an image file is present in the request
-        if 'image' not in request.files:
-            logging.error("No image file found in the request.")
-            return jsonify({'error': 'No image file provided!'}), 400
+#         # Check if an image file is present in the request
+#         if 'image' not in request.files:
+#             logging.error("No image file found in the request.")
+#             return jsonify({'error': 'No image file provided!'}), 400
 
-        file = request.files['image']
-        if file.filename == '':
-            logging.error("Empty filename provided in the request.")
-            return jsonify({'error': 'Empty filename!'}), 400
+#         file = request.files['image']
+#         if file.filename == '':
+#             logging.error("Empty filename provided in the request.")
+#             return jsonify({'error': 'Empty filename!'}), 400
 
-        # Process the image
-        logging.info("📷 Processing image for prediction...")
-        try:
-            img = Image.open(file).convert('RGB').resize((224, 224))
-            img_array = np.expand_dims(np.array(img) / 255.0, axis=0)
-            img.close()
-        except Exception as e:
-            logging.error(f"❌ Error processing image: {e}", exc_info=True)
-            return jsonify({'error': f'Invalid image file: {str(e)}'}), 400
+#         # Process the image
+#         logging.info("📷 Processing image for prediction...")
+#         try:
+#             img = Image.open(file).convert('RGB').resize((224, 224))
+#             img_array = np.expand_dims(np.array(img) / 255.0, axis=0)
+#             img.close()
+#         except Exception as e:
+#             logging.error(f"❌ Error processing image: {e}", exc_info=True)
+#             return jsonify({'error': f'Invalid image file: {str(e)}'}), 400
 
-        # Perform prediction
-        logging.info("🤖 Making prediction...")
-        try:
-            preds = model.predict(img_array)[0][0]
-            classification = 'Nodule' if preds > 0.5 else 'Non-Nodule'
-            logging.info(f"✅ Prediction successful: Class - {classification}, Score - {preds}")
-            return jsonify({'classification': classification, 'score': float(preds)})
-        except Exception as e:
-            logging.error(f"❌ Error during prediction: {e}", exc_info=True)
-            return jsonify({'error': f'Prediction failed: {str(e)}'}), 500
+#         # Perform prediction
+#         logging.info("🤖 Making prediction...")
+#         try:
+#             preds = model.predict(img_array)[0][0]
+#             classification = 'Nodule' if preds > 0.5 else 'Non-Nodule'
+#             logging.info(f"✅ Prediction successful: Class - {classification}, Score - {preds}")
+#             return jsonify({'classification': classification, 'score': float(preds)})
+#         except Exception as e:
+#             logging.error(f"❌ Error during prediction: {e}", exc_info=True)
+#             return jsonify({'error': f'Prediction failed: {str(e)}'}), 500
 
-    except Exception as e:
-        logging.error(f"❌ Unexpected error in /predict: {e}", exc_info=True)
-        return jsonify({'error': f'Internal Server Error: {str(e)}'}), 500
+#     except Exception as e:
+#         logging.error(f"❌ Unexpected error in /predict: {e}", exc_info=True)
+#         return jsonify({'error': f'Internal Server Error: {str(e)}'}), 500
 
 
 
 # Define Flask routes
-@app.route("/")
-def index():
+@app.route('/predict', methods=['POST'])
+# def predict():
     return Path('/content/uploader.html').read_text()
 
 @app.route("/upload_file", methods=["POST"])
