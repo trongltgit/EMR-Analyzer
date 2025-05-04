@@ -125,7 +125,7 @@ def predict():
             logging.warning("Model is not loaded, attempting to reload.")
             load_model()
 
-        # Kiểm tra file ảnh trong request
+        # Check if an image file is present in the request
         if 'image' not in request.files:
             logging.error("No image file found in the request.")
             return jsonify({'error': 'No image file provided!'}), 400
@@ -135,7 +135,7 @@ def predict():
             logging.error("Empty filename provided in the request.")
             return jsonify({'error': 'Empty filename!'}), 400
 
-        # Xử lý ảnh
+        # Process the image
         logging.info("📷 Processing image for prediction...")
         try:
             img = Image.open(file).convert('RGB').resize((224, 224))
@@ -145,7 +145,7 @@ def predict():
             logging.error(f"❌ Error processing image: {e}", exc_info=True)
             return jsonify({'error': f'Invalid image file: {str(e)}'}), 400
 
-        # Thực hiện dự đoán
+        # Perform prediction
         logging.info("🤖 Making prediction...")
         try:
             preds = model.predict(img_array)[0][0]
