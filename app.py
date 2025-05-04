@@ -1,6 +1,5 @@
 import os
 import logging
-import shutil
 import numpy as np
 import tensorflow as tf
 from flask import Flask, request, jsonify, render_template
@@ -17,7 +16,7 @@ logging.basicConfig(
 
 # Khởi tạo Flask app
 app = Flask(__name__, template_folder="templates", static_folder="static")
-CORS(app, origins=["*"])  # Cho phép mọi nguồn gốc, có thể tùy chỉnh nếu cần.
+CORS(app)  # Cho phép mọi nguồn gốc truy cập
 
 # Đường dẫn và biến toàn cục
 MODEL_DIR = "./models"
@@ -39,7 +38,7 @@ def assemble_model_parts():
                     logging.error(f"Missing model part: {part}")
                     raise FileNotFoundError(f"Missing part: {part}")
                 with open(part, 'rb') as part_file:
-                    shutil.copyfileobj(part_file, assembled_file)
+                    assembled_file.write(part_file.read())
         logging.info("✅ Successfully assembled model parts into a single .7z file.")
     except Exception as e:
         logging.error(f"❌ Failed to assemble model parts: {e}")
@@ -68,7 +67,7 @@ def prepare_model():
         raise
 
 # Hàm tải mô hình vào bộ nhớ
-def load_model_into_memory():
+def load_model():
     global model
     try:
         prepare_model()
@@ -76,12 +75,12 @@ def load_model_into_memory():
         model = tf.keras.models.load_model(MODEL_PATH)
         logging.info("✅ Model loaded successfully!")
     except Exception as e:
-        logging.error(f"❌ Error loading model: {e}")
+        logging.error(f"❌ Error loading model: {e}", exc_info=True)
         raise
 
 # Tải mô hình khi khởi động ứng dụng
 try:
-    load_model_into_memory()
+    load_model()
 except Exception as e:
     logging.error(f"❌ Model initialization failed: {e}")
 
@@ -108,11 +107,7 @@ def dashboard():
 # Route kiểm tra trạng thái server
 @app.route('/ping', methods=['GET'])
 def ping():
-    try:
-        return jsonify({'message': 'Server is running!'}), 200
-    except Exception as e:
-        logging.error(f"Ping error: {e}")
-        return jsonify({'error': str(e)}), 500
+    return jsonify({'message': 'Server is running!'}), 200
 
 # Route kiểm tra trạng thái mô hình
 @app.route('/model-status', methods=['GET'])
@@ -130,10 +125,9 @@ def model_status():
 @app.route('/predict', methods=['POST'])
 def predict():
     try:
-        # Kiểm tra nếu model chưa được load
         if model is None:
             logging.warning("Model is not loaded in memory, attempting to load model.")
-            load_model_into_memory()
+            load_model()
 
         # Kiểm tra file ảnh trong request
         if 'image' not in request.files:
@@ -148,20 +142,21 @@ def predict():
         # Xử lý ảnh
         logging.info("Processing image for prediction...")
         img = Image.open(file).convert('RGB').resize((224, 224))
-        x = np.expand_dims(np.array(img) / 255.0, axis=0)
+        img_array = np.expand_dims(np.array(img) / 255.0, axis=0)
         img.close()
 
         # Thực hiện dự đoán
         logging.info("Making prediction with the model...")
-        preds = model.predict(x)[0][0]
-        cls = 'Nodule' if preds > 0.5 else 'Non-Nodule'
-        logging.info(f"✅ Prediction successful: Class - {cls}, Score - {preds}")
-        return jsonify({'classification': cls, 'score': float(preds)})
+        preds = model.predict(img_array)[0][0]
+        classification = 'Nodule' if preds > 0.5 else 'Non-Nodule'
+        logging.info(f"✅ Prediction successful: Class - {classification}, Score - {preds}")
+        return jsonify({'classification': classification, 'score': float(preds)})
+
     except Exception as e:
         logging.error(f"❌ Prediction error: {e}", exc_info=True)
         return jsonify({'error': f'Internal Server Error: {str(e)}'}), 500
 
 # Chạy ứng dụng
 if __name__ == '__main__':
-    port = int(os.environ.get("PORT", 10000))
+    port = int(os.environ.get("PORT", 5000))  # Sử dụng cổng từ biến môi trường
     app.run(host='0.0.0.0', port=port)
