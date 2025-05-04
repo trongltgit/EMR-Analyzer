@@ -31,7 +31,7 @@ CORS(app)  # Cho phép mọi nguồn gốc truy cập
 
 
 # File ID của tệp trên Google Drive
-file_id = "your_file_id_here"  # Thay 'your_file_id_here' bằng ID của file
+file_id = "1EpAgsWQSXi7CsUO8mEQDGAJyjdfN0T6n"  # Thay 'your_file_id_here' bằng ID của file
 
 # Đường dẫn tải xuống file `best_weights_model.keras`
 model_path = "./best_weights_model.keras"
