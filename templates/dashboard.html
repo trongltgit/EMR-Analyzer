@@ -64,6 +64,17 @@
       resultMessage.innerText = `Lỗi mạng: ${e.message}`;
     }
   });
+
+  document.getElementById("ping-btn").addEventListener("click", async () => {
+    const pingResult = document.getElementById("ping-result");
+    try {
+      const res = await fetch("/ping");
+      const data = await res.json();
+      pingResult.innerText = "Ping thành công: " + JSON.stringify(data);
+    } catch (e) {
+      pingResult.innerText = "Ping thất bại: " + e.message;
+    }
+  });
 </script>
 </body>
 </html>
