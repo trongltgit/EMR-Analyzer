@@ -30,22 +30,22 @@ CORS(app)  # Cho phép mọi nguồn gốc truy cập
 
 
 
-# Đường dẫn lưu file sau khi tải xuống
-output_path = "./models/best_weights_model.keras"
+# File ID của tệp trên Google Drive
+file_id = "your_file_id_here"  # Thay 'your_file_id_here' bằng ID của file
 
-# File ID của file trên Google Drive
-file_id = "1EpAgsWQSXi7CsUO8mEQDGAJyjdfN0T6n"
+# Đường dẫn tải xuống file `best_weights_model.keras`
+model_path = "./best_weights_model.keras"
 
-# URL tải file từ Google Drive
-url = f"https://drive.google.com/uc?id={file_id}"
+# Tải file từ Google Drive nếu chưa tồn tại
+if not os.path.exists(model_path):
+    url = f"https://drive.google.com/uc?id={file_id}"
+    print(f"Downloading model file from Google Drive ID: {file_id}")
+    gdown.download(url, model_path, quiet=False)
+    print(f"Model file downloaded successfully to {model_path}")
 
-# Tải file
-try:
-    print(f"Downloading file from Google Drive ID: {file_id}")
-    gdown.download(url, output_path, quiet=False)
-    print(f"File downloaded successfully and saved to {output_path}")
-except Exception as e:
-    print(f"❌ Error downloading file: {e}")
+# Load mô hình từ file đã tải xuống
+best_model = load_model(model_path)
+print("Model loaded successfully!")
 
 
 
