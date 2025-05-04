@@ -103,7 +103,11 @@ def dashboard():
 # Route kiểm tra trạng thái server
 @app.route('/ping', methods=['GET'])
 def ping():
-    return jsonify({'message': 'Server is running!'}), 200
+    try:
+        return jsonify({'message': 'Server is running!'}), 200
+    except Exception as e:
+        logging.error(f"❌ Error in /ping: {e}", exc_info=True)
+        return jsonify({'error': 'Server Ping Failed!'}), 500
 
 # Route kiểm tra trạng thái mô hình
 @app.route('/model-status', methods=['GET'])
