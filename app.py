@@ -1,5 +1,6 @@
 import os
 import logging
+import shutil
 import numpy as np
 import tensorflow as tf
 from flask import Flask, request, jsonify, render_template
@@ -28,6 +29,11 @@ MODEL_PARTS = [
 ]
 model = None
 
+# Tạo thư mục nếu chưa tồn tại
+if not os.path.exists(MODEL_DIR):
+    os.makedirs(MODEL_DIR)
+    logging.info(f"📁 Created directory: {MODEL_DIR}")
+
 # Hàm hợp nhất các tệp .7z
 def assemble_model_parts():
     try:
@@ -35,13 +41,13 @@ def assemble_model_parts():
         with open(ASSEMBLED_MODEL, 'wb') as assembled_file:
             for part in MODEL_PARTS:
                 if not os.path.exists(part):
-                    logging.error(f"Missing model part: {part}")
+                    logging.error(f"❌ Missing model part: {part}")
                     raise FileNotFoundError(f"Missing part: {part}")
                 with open(part, 'rb') as part_file:
-                    assembled_file.write(part_file.read())
+                    shutil.copyfileobj(part_file, assembled_file)
         logging.info("✅ Successfully assembled model parts into a single .7z file.")
     except Exception as e:
-        logging.error(f"❌ Failed to assemble model parts: {e}")
+        logging.error(f"❌ Failed to assemble model parts: {e}", exc_info=True)
         raise
 
 # Hàm giải nén tệp .7z
@@ -52,18 +58,18 @@ def extract_model():
             archive.extractall(path=MODEL_DIR)
         logging.info("✅ Successfully extracted model .keras file.")
     except Exception as e:
-        logging.error(f"❌ Failed to extract model: {e}")
+        logging.error(f"❌ Failed to extract model: {e}", exc_info=True)
         raise
 
 # Hàm chuẩn bị mô hình
 def prepare_model():
     try:
-        if not os.path.exists(MODEL_PATH):
+        if not os.path.exists(MODEL_PATH):  # Chỉ thực hiện nếu file .keras chưa tồn tại
             if not os.path.exists(ASSEMBLED_MODEL):
                 assemble_model_parts()
             extract_model()
     except Exception as e:
-        logging.error(f"❌ Error in prepare_model: {e}")
+        logging.error(f"❌ Error in prepare_model: {e}", exc_info=True)
         raise
 
 # Hàm tải mô hình vào bộ nhớ
@@ -87,22 +93,12 @@ except Exception as e:
 # Route home
 @app.route('/')
 def home():
-    try:
-        logging.info("Rendering index.html for the home route.")
-        return render_template('index.html')
-    except Exception as e:
-        logging.error(f"❌ Error rendering home page: {e}", exc_info=True)
-        return jsonify({'error': 'Internal server error', 'details': str(e)}), 500
+    return render_template('index.html')
 
 # Route dashboard
 @app.route('/dashboard')
 def dashboard():
-    try:
-        logging.info("Rendering dashboard.html for the dashboard route.")
-        return render_template('dashboard.html')
-    except Exception as e:
-        logging.error(f"❌ Error rendering dashboard page: {e}", exc_info=True)
-        return jsonify({'error': 'Internal server error', 'details': str(e)}), 500
+    return render_template('dashboard.html')
 
 # Route kiểm tra trạng thái server
 @app.route('/ping', methods=['GET'])
@@ -126,7 +122,7 @@ def model_status():
 def predict():
     try:
         if model is None:
-            logging.warning("Model is not loaded in memory, attempting to load model.")
+            logging.warning("Model is not loaded, attempting to reload.")
             load_model()
 
         # Kiểm tra file ảnh trong request
@@ -140,23 +136,31 @@ def predict():
             return jsonify({'error': 'Empty filename!'}), 400
 
         # Xử lý ảnh
-        logging.info("Processing image for prediction...")
-        img = Image.open(file).convert('RGB').resize((224, 224))
-        img_array = np.expand_dims(np.array(img) / 255.0, axis=0)
-        img.close()
+        logging.info("📷 Processing image for prediction...")
+        try:
+            img = Image.open(file).convert('RGB').resize((224, 224))
+            img_array = np.expand_dims(np.array(img) / 255.0, axis=0)
+            img.close()
+        except Exception as e:
+            logging.error(f"❌ Error processing image: {e}", exc_info=True)
+            return jsonify({'error': f'Invalid image file: {str(e)}'}), 400
 
         # Thực hiện dự đoán
-        logging.info("Making prediction with the model...")
-        preds = model.predict(img_array)[0][0]
-        classification = 'Nodule' if preds > 0.5 else 'Non-Nodule'
-        logging.info(f"✅ Prediction successful: Class - {classification}, Score - {preds}")
-        return jsonify({'classification': classification, 'score': float(preds)})
+        logging.info("🤖 Making prediction...")
+        try:
+            preds = model.predict(img_array)[0][0]
+            classification = 'Nodule' if preds > 0.5 else 'Non-Nodule'
+            logging.info(f"✅ Prediction successful: Class - {classification}, Score - {preds}")
+            return jsonify({'classification': classification, 'score': float(preds)})
+        except Exception as e:
+            logging.error(f"❌ Error during prediction: {e}", exc_info=True)
+            return jsonify({'error': f'Prediction failed: {str(e)}'}), 500
 
     except Exception as e:
-        logging.error(f"❌ Prediction error: {e}", exc_info=True)
+        logging.error(f"❌ Unexpected error in /predict: {e}", exc_info=True)
         return jsonify({'error': f'Internal Server Error: {str(e)}'}), 500
 
 # Chạy ứng dụng
 if __name__ == '__main__':
-    port = int(os.environ.get("PORT", 5000))  # Sử dụng cổng từ biến môi trường
+    port = int(os.environ.get("PORT", 5000))  # Cổng mặc định là 5000 nếu biến PORT không tồn tại
     app.run(host='0.0.0.0', port=port)
