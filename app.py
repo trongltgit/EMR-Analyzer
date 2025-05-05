@@ -53,41 +53,41 @@ def upload_file():
 
     return 'Error uploading file'
 
-# Configure logging
-logging.basicConfig(
-    level=logging.DEBUG,
-    filename="server.log",
-    format="%(asctime)s - %(levelname)s - %(message)s"
-)
+# # Configure logging
+# logging.basicConfig(
+#     level=logging.DEBUG,
+#     filename="server.log",
+#     format="%(asctime)s - %(levelname)s - %(message)s"
+# )
 
-# Flask app initialization
-app = Flask(__name__, template_folder="templates", static_folder="static")
-CORS(app)
+# # Flask app initialization
+# app = Flask(__name__, template_folder="templates", static_folder="static")
+# CORS(app)
 
-# Google Drive File ID and Model Path
-file_id = "1EpAgsWQSXi7CsUO8mEQDGAJyjdfN0T6n"  # Update this with the correct file ID
-model_path = "./best_weights_model.keras"
+# # Google Drive File ID and Model Path
+# file_id = "1EpAgsWQSXi7CsUO8mEQDGAJyjdfN0T6n"  # Update this with the correct file ID
+# model_path = "./best_weights_model.keras"
 
-# Download model file from Google Drive if not present
-def download_model():
-    if not os.path.exists(model_path):
-        url = f"https://drive.google.com/uc?id={file_id}"
-        try:
-            logging.info(f"Downloading model file from Google Drive ID: {file_id}")
-            gdown.download(url, model_path, quiet=False)
-            logging.info(f"Model file downloaded successfully to {model_path}")
-        except Exception as e:
-            logging.error(f"Error downloading model file: {e}", exc_info=True)
-            raise RuntimeError("Failed to download the model file. Check permissions or link.")
+# # Download model file from Google Drive if not present
+# def download_model():
+#     if not os.path.exists(model_path):
+#         url = f"https://drive.google.com/uc?id={file_id}"
+#         try:
+#             logging.info(f"Downloading model file from Google Drive ID: {file_id}")
+#             gdown.download(url, model_path, quiet=False)
+#             logging.info(f"Model file downloaded successfully to {model_path}")
+#         except Exception as e:
+#             logging.error(f"Error downloading model file: {e}", exc_info=True)
+#             raise RuntimeError("Failed to download the model file. Check permissions or link.")
 
-# Load the model
-try:
-    download_model()
-    best_model = load_model(model_path)
-    logging.info("Model loaded successfully!")
-except Exception as e:
-    logging.error(f"Error loading model: {e}", exc_info=True)
-    best_model = None
+# # Load the model
+# try:
+#     download_model()
+#     best_model = load_model(model_path)
+#     logging.info("Model loaded successfully!")
+# except Exception as e:
+#     logging.error(f"Error loading model: {e}", exc_info=True)
+#     best_model = None
 
 # Routes
 @app.route('/')
