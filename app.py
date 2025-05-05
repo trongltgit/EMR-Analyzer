@@ -6,6 +6,17 @@ from flask_cors import CORS
 from tensorflow.keras.models import load_model
 from PIL import Image
 import gdown
+import urllib.request
+import drive
+drive.mount('/content/drive')
+
+
+model_path = '/content/drive/MyDrive/efficientnet/efficientnet/best_weights_model.keras'
+best_model = load_model(model_path)
+
+urllib.request.urlretrieve("https://gist.githubusercontent.com/datpmwork/2aa0573436e5060f0a1066a69a98b180/raw/2adf06193d0e660ddfe21bf0957e6a6d88d591b8/data-model-uploader.html", "/content/uploader.html")
+
+
 
 # Configure logging
 logging.basicConfig(
