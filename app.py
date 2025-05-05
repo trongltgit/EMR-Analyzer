@@ -14,9 +14,44 @@ drive.mount('/content/drive')
 model_path = '/content/drive/MyDrive/efficientnet/efficientnet/best_weights_model.keras'
 best_model = load_model(model_path)
 
-urllib.request.urlretrieve("https://gist.githubusercontent.com/datpmwork/2aa0573436e5060f0a1066a69a98b180/raw/2adf06193d0e660ddfe21bf0957e6a6d88d591b8/data-model-uploader.html", "/content/uploader.html")
+urllib.request.urlretrieve("https://raw.githubusercontent.com/trongltgit/EMR-Analyzer/refs/heads/main/templates/dashboard.html", "/content/uploader.html")
 
 
+
+# Define Flask routes
+@app.route("/")
+def index():
+    return Path('/content/uploader.html').read_text()
+
+@app.route("/upload_file", methods=["POST"])
+def upload_file():
+    if 'file' not in request.files:
+        return 'No file part'
+
+    file = request.files['file']
+
+    if file.filename == '':
+        return 'No selected file'
+
+    if file:
+        image_path = '/content/' + file.filename
+        file.save(image_path)  # Save the file to a folder named 'uploads'
+
+        # Đọc ảnh và chuyển về kích thước mong muốn (240x240 trong trường hợp này)
+        image = cv2.imread(image_path)
+        image = cv2.resize(image, (240, 240))
+        image = np.expand_dims(image, axis=0)  # Thêm chiều batch
+
+        # Chuẩn hóa dữ liệu (nếu cần)
+        # image = image / 255.0
+
+        # Dự đoán nhãn
+        prediction = best_model.predict(image)
+        binary_prediction = np.round(prediction)
+
+        return json.dumps(binary_prediction.tolist())
+
+    return 'Error uploading file'
 
 # Configure logging
 logging.basicConfig(
