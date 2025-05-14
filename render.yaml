@@ -1,8 +1,9 @@
 services:
   - type: web
-    name: emr-flask-app
+    name: emr-prediction
     env: python
     buildCommand: pip install -r requirements.txt
-    startCommand: python app.py
-    plan: free
-    autoDeploy: false
+    startCommand: gunicorn app:app
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.11
