@@ -1,10 +1,9 @@
 services:
   - type: web
-    name: nodule-detector
-    env: docker
-    dockerfilePath: ./Dockerfile
+    name: emr-analysis
+    env: python
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "python app.py"
     envVars:
-      - key: PORT
-        value: 5000
-      - key: PYTHON_WORKER_TIMEOUT
-        value: 120
+      - key: PYTHON_VERSION
+        value: 3.10
