@@ -91,38 +91,49 @@ def dashboard():
     return render_template('dashboard.html')
 
 @app.route('/emr_profile')
-def dashboard():
+def emr_profile():
     return render_template('EMR_Profile.html')
 
-@app.route('/profile', methods=['POST'])
-def predict():
+UPLOAD_FOLDER = 'uploads'
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+@app.route("/upload", methods=["POST"])
+def upload_file():
+    if "file" not in request.files:
+        return jsonify({"error": "Không tìm thấy tệp"}), 400
+
+    file = request.files["file"]
+    if file.filename == "":
+        return jsonify({"error": "Tên tệp không hợp lệ"}), 400
+
+    filename = secure_filename(file.filename)
+    filepath = os.path.join(UPLOAD_FOLDER, filename)
+    file.save(filepath)
+
     try:
-        if model is None:
-            load_model()
-            if model is None:
-                logging.error("Model failed to load")
-                return jsonify({'error': 'Không thể tải model. Vui lòng thử lại sau.'}), 503
+        data = pd.read_csv(filepath)
+        profile = ProfileReport(data, title="Phân tích hồ sơ EMR", minimal=True)
+        report_path = os.path.join(UPLOAD_FOLDER, "report_dummy.html")
+        profile.to_file(report_path)
 
-        if 'image' not in request.files:
-            return jsonify({'error': 'Không có file ảnh được gửi!'}), 400
-
-        file = request.files['image']
-        if file.filename == '':
-            return jsonify({'error': 'Tên file ảnh rỗng!'}), 400
-
-        img = Image.open(file).convert('RGB').resize((224, 224))
-        x = np.expand_dims(np.array(img) / 255.0, axis=0)
-        img.close()
-
-        preds = model.predict(x)[0][0]
-        cls = 'Nodule' if preds > 0.5 else 'Non-Nodule'
-        return jsonify({'classification': cls, 'score': float(preds)})
+        # Sử dụng đường dẫn tương đối để frontend mở được dù ở local hay render
+        return jsonify({"success": True, "report_url": request.host_url + "report"}), 200
     except Exception as e:
-        logging.error(f"Lỗi khi dự đoán: {str(e)}", exc_info=True)
-        return jsonify({'error': f'Lỗi xử lý ảnh hoặc dự đoán: {str(e)}'}), 500
+        return jsonify({"error": str(e)}), 500
 
-@app.route('/emr_prediction')
-def dashboard():
+@app.route("/report", methods=["GET"])
+def serve_report():
+    report_path = os.path.join(UPLOAD_FOLDER, "report_dummy.html")
+    if not os.path.exists(report_path):
+        return "Report not found", 404
+    return send_file(report_path)
+
+@app.route("/", methods=["GET"])
+def root():
+    return "API hồ sơ EMR đang hoạt động."
+
+@app.route('/emr_predictiion')
+def emr_prediction():
     return render_template('EMR_Preddiction.html')
 
 
