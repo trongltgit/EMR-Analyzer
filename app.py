@@ -36,6 +36,16 @@ def index():
 def dashboard():
     return render_template('dashboard.html')
 
+
+@app.route('/emr_profile')
+def emr_profile():
+    return render_template('EMR_Profile.html')
+
+@app.route('/emr_prediction')
+def emr_prediction():
+    return render_template('EMR_Prediction.html')
+    
+
 @app.route('/upload_csv', methods=['POST'])
 def upload_csv():
     file = request.files.get('csv_file')
