@@ -1,9 +1,8 @@
 services:
   - type: web
-    name: emr-analysis
+    name: emr-flask-app
     env: python
-    buildCommand: "pip install -r requirements.txt"
-    startCommand: "python app.py"
-    envVars:
-      - key: PYTHON_VERSION
-        value: 3.10
+    buildCommand: pip install -r requirements.txt
+    startCommand: python app.py
+    plan: free
+    autoDeploy: false
