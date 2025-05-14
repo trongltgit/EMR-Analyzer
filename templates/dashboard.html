@@ -17,46 +17,18 @@
 <body>
   <div class="container">
     <h1>Chào mừng đến với Dashboard - Phân tích Hồ sơ EMR</h1>
-    <p>Chọn ảnh để phân tích và xem kết quả phân loại giữa "Nodule" và "Non-Nodule".</p>
-    <div class="file-upload-container">
-      <h2>Chọn ảnh để phân tích</h2>
-      <input type="file" id="upload" accept="image/*">
-      <button id="analyze-button">Phân tích</button>
-      <div id="result-message"></div>
-    </div>
-    <div class="contact">
+    
+    <li><a href="EMR_Profile.html">Phân tích hồ sơ bênh án EMR</a></li>
+    <li><a href="EMR_Prediction.html">Phân tích EMR Chuyên sâu</a></li>
+       
+  <div class="contact">
       <p><strong>Liên hệ:</strong><br>
          Công ty TNHH MTV Minh Trí và những người bạn Marie Curie<br>
          159 Nam Kỳ Khởi Nghĩa, Quận 3, Tp. Hồ Chí Minh<br>
          Lại Nguyễn Minh Trí - <a href="mailto:laingminhtri@gmail.com">laingminhtri@gmail.com</a> - 0908083566</p>
-   
-<script>
-  document.getElementById("analyze-button").addEventListener("click", async () => {
-    const fileInput = document.getElementById("upload");
-    if (!fileInput.files.length) {
-      alert("Vui lòng chọn một tệp!");
-      return;
-    }
-
-    const formData = new FormData();
-    formData.append("image", fileInput.files[0]);
-
-    const resultMessage = document.getElementById("result-message");
-    resultMessage.innerText = "Đang phân tích...";
-
-    try {
-      const res = await fetch("/predict", { method: "POST", body: formData });
-      if (!res.ok) {
-        const errorData = await res.json();
-        resultMessage.innerText = `Lỗi: ${errorData.error}`;
-        return;
-      }
-      const data = await res.json();
-      resultMessage.innerText = `Kết quả: ${JSON.stringify(data.prediction)}`;
-    } catch (e) {
-      resultMessage.innerText = `Lỗi mạng: ${e.message}`;
-    }
-  });
-</script>
+    </div>   
+    
+    
+    
 </body>
 </html>
