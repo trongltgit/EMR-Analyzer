@@ -17,7 +17,7 @@ logging.basicConfig(level=logging.INFO)
 # Biến toàn cục cho model
 model = None
 MODEL_PATH = "best_weights_model.keras"
-MODEL_URL = "https://drive.google.com/uc?id=1uUR3vwNU1Hzg_4--Kvm6OPWxz2EfQNT1"
+MODEL_URL = "https://drive.google.com/uc?id=1EpAgsWQSXi7CsUO8mEQDGAJyjdfN0T6n"
 
 # ==========================
 # TẢI MODEL NẾU CHƯA CÓ
