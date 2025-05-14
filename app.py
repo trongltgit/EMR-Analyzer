@@ -2,13 +2,16 @@ import os
 import shutil
 import numpy as np
 import tensorflow as tf
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, request, jsonify, render_template, send_file
 from tensorflow.keras.models import load_model
 from flask_cors import CORS
 from PIL import Image
 import gdown
 import logging
 from retrying import retry
+import pandas as pd
+from ydata_profiling import ProfileReport
+from werkzeug.utils import secure_filename
 
 logging.basicConfig(level=logging.DEBUG, filename="server.log",
                     format="%(asctime)s - %(levelname)s - %(message)s")
@@ -86,6 +89,42 @@ def home():
 @app.route('/dashboard')
 def dashboard():
     return render_template('dashboard.html')
+
+@app.route('/emr_profile')
+def dashboard():
+    return render_template('EMR_Profile.html')
+
+@app.route('/profile', methods=['POST'])
+def predict():
+    try:
+        if model is None:
+            load_model()
+            if model is None:
+                logging.error("Model failed to load")
+                return jsonify({'error': 'Không thể tải model. Vui lòng thử lại sau.'}), 503
+
+        if 'image' not in request.files:
+            return jsonify({'error': 'Không có file ảnh được gửi!'}), 400
+
+        file = request.files['image']
+        if file.filename == '':
+            return jsonify({'error': 'Tên file ảnh rỗng!'}), 400
+
+        img = Image.open(file).convert('RGB').resize((224, 224))
+        x = np.expand_dims(np.array(img) / 255.0, axis=0)
+        img.close()
+
+        preds = model.predict(x)[0][0]
+        cls = 'Nodule' if preds > 0.5 else 'Non-Nodule'
+        return jsonify({'classification': cls, 'score': float(preds)})
+    except Exception as e:
+        logging.error(f"Lỗi khi dự đoán: {str(e)}", exc_info=True)
+        return jsonify({'error': f'Lỗi xử lý ảnh hoặc dự đoán: {str(e)}'}), 500
+
+@app.route('/emr_prediction')
+def dashboard():
+    return render_template('EMR_Preddiction.html')
+
 
 @app.route('/predict', methods=['POST'])
 def predict():
