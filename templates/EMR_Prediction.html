@@ -33,33 +33,47 @@
          Lại Nguyễn Minh Trí - <a href="mailto:laingminhtri@gmail.com">laingminhtri@gmail.com</a> - 0908083566</p>
     </div>
    
-<script>
-  document.getElementById("analyze-button").addEventListener("click", async () => {
-    const fileInput = document.getElementById("upload");
-    if (!fileInput.files.length) {
-      alert("Vui lòng chọn một tệp!");
-      return;
-    }
+ <script>
+    const uploadInput = document.getElementById("upload");
+    const previewImg = document.getElementById("preview");
 
-    const formData = new FormData();
-    formData.append("image", fileInput.files[0]);
+    uploadInput.addEventListener("change", () => {
+      const file = uploadInput.files[0];
+      if (file) {
+        previewImg.src = URL.createObjectURL(file);
+      }
+    });
 
-    const resultMessage = document.getElementById("result-message");
-    resultMessage.innerText = "Đang phân tích...";
-
-    try {
-      const res = await fetch("/upload_image", { method: "POST", body: formData });
-      if (!res.ok) {
-        const errorData = await res.json();
-        resultMessage.innerText = `Lỗi: ${errorData.error}`;
+    document.getElementById("analyze-button").addEventListener("click", async () => {
+      const file = uploadInput.files[0];
+      if (!file) {
+        alert("Vui lòng chọn ảnh.");
         return;
       }
-      const data = await res.json();
-      resultMessage.innerText = `Kết quả: ${JSON.stringify(data.prediction)}`;
-    } catch (e) {
-      resultMessage.innerText = `Lỗi mạng: ${e.message}`;
-    }
-  });
-</script>
+
+      const formData = new FormData();
+      formData.append("image", file);
+
+      const resultMessage = document.getElementById("result-message");
+      resultMessage.innerText = "⏳ Đang phân tích...";
+
+      try {
+        const res = await fetch("/predict", {
+          method: "POST",
+          body: formData
+        });
+        const data = await res.json();
+
+        if (data.error) {
+          resultMessage.innerText = `❌ Lỗi: ${data.error}`;
+        } else {
+          resultMessage.innerText = `✅ Kết quả: ${data.prediction} (Độ tin cậy: ${(data.confidence * 100).toFixed(2)}%)`;
+        }
+
+      } catch (err) {
+        resultMessage.innerText = `❌ Đã xảy ra lỗi: ${err.message}`;
+      }
+    });
+  </script>
 </body>
 </html>
