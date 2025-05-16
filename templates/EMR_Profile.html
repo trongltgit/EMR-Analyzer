@@ -52,7 +52,7 @@
     resultMessage.innerText = "Đang phân tích...";
 
     try {
-      const res = await fetch(`${getApiBase()}/upload`, {
+      const res = await fetch(`${getApiBase()}/upload_csv`, {
         method: "POST",
         body: formData,
       });
