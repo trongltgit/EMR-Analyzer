@@ -1,102 +1,82 @@
-from flask import Flask, render_template, request, send_from_directory, jsonify
 import os
+from flask import Flask, request, jsonify, render_template, send_file
+from flask_cors import CORS
+import numpy as np
+import tensorflow as tf
+from tensorflow.keras.models import load_model
+from PIL import Image
+import io
 import pandas as pd
 from ydata_profiling import ProfileReport
-from werkzeug.utils import secure_filename
-import tensorflow as tf
-import numpy as np
-from PIL import Image
-import logging
 
 app = Flask(__name__)
 CORS(app)
-app.config['UPLOAD_FOLDER'] = 'uploads'
-os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
-logging.basicConfig(level=logging.INFO)
+# Load model once at startup
+MODEL_PATH = "models/best_weights_model.keras"  # Điều chỉnh đường dẫn đúng
+model = load_model(MODEL_PATH)
 
-# Load model once
-model_path = 'models/best_model.keras'
-if not os.path.exists(model_path):
-    app.logger.error(f"Model file not found: {model_path}")
-model = tf.keras.models.load_model(model_path)
+ALLOWED_IMAGE_EXTENSIONS = {'png', 'jpg', 'jpeg'}
+ALLOWED_CSV_EXTENSIONS = {'csv'}
 
-def preprocess_image(image_path):
-    img = Image.open(image_path).convert('RGB')
-    img = img.resize((224, 224))  # adjust to your model's expected input
-    img_array = np.array(img) / 255.0
-    return np.expand_dims(img_array, axis=0)
+
+def allowed_file(filename, allowed_exts):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in allowed_exts
+
 
 @app.route('/')
 def index():
-    return render_template('index.html')
-
-@app.route('/dashboard')
-def dashboard():
+    # Trang chính, có thể redirect sang dashboard hoặc upload page
     return render_template('dashboard.html')
 
-@app.route('/emr_profile')
-def emr_profile():
-    return render_template('EMR_Profile.html')
 
-@app.route('/emr_prediction')
-def emr_prediction():
-    return render_template('EMR_Prediction.html')
-
-@app.route('/upload_csv', methods=['POST'])
-def upload_csv():
-    if 'file' not in request.files:
-        return jsonify({'error': 'File not found'}), 400
-
-    file = request.files['file']
-    if file.filename == '':
-        return jsonify({'error': 'Invalid filename'}), 400
-
-    filename = secure_filename(file.filename)
-    file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-    file.save(file_path)
-
-    try:
-        df = pd.read_csv(file_path)
-        profile = ProfileReport(df, title="EMR Profile Report", explorative=True)
-        profile_path = os.path.join(app.config['UPLOAD_FOLDER'], 'profile_report.html')
-        profile.to_file(profile_path)
-        return jsonify({'report_url': f'/uploads/profile_report.html'})
-    except Exception as e:
-        app.logger.error(f"CSV profiling error: {e}")
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/upload_image', methods=['POST'])
-def upload_image():
+@app.route('/predict', methods=['POST'])
+def predict():
     if 'image' not in request.files:
-        return jsonify({'error': 'Image not found'}), 400
+        return jsonify({"error": "No image file provided"}), 400
 
     file = request.files['image']
-    if file.filename == '':
-        return jsonify({'error': 'Invalid image filename'}), 400
-
-    filename = secure_filename(file.filename)
-    file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-    file.save(file_path)
+    if file.filename == '' or not allowed_file(file.filename, ALLOWED_IMAGE_EXTENSIONS):
+        return jsonify({"error": "Invalid image file extension"}), 400
 
     try:
-        image = preprocess_image(file_path)
-        prediction = model.predict(image)
-        if prediction.ndim == 2 and prediction.shape[1] == 1:
-            prediction = prediction[0][0]
-        elif prediction.ndim == 1:
-            prediction = prediction[0]
-        else:
-            raise ValueError("Unexpected prediction output shape")
-        result = 'Nodule' if prediction >= 0.5 else 'Non-Nodule'
-        return jsonify({'prediction': result})
-    except Exception as e:
-        app.logger.error(f"Image prediction error: {e}")
-        return jsonify({'error': str(e)}), 500
+        image = Image.open(file.stream).convert('RGB')
+        image = image.resize((224, 224))  # Hoặc kích thước bạn dùng khi training
+        image_array = np.array(image) / 255.0
+        image_array = np.expand_dims(image_array, axis=0)  # (1, H, W, C)
 
-@app.route('/uploads/<path:filename>')
-def uploaded_file(filename):
-    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+        preds = model.predict(image_array)
+        # Giả sử model output dạng xác suất 2 lớp
+        class_index = np.argmax(preds, axis=1)[0]
+        class_label = "Nodule" if class_index == 1 else "Non-Nodule"
+        confidence = float(np.max(preds))
+
+        return jsonify({"prediction": class_label, "confidence": confidence})
+
+    except Exception as e:
+        return jsonify({"error": f"Prediction failed: {str(e)}"}), 500
+
+
+@app.route('/profile_csv', methods=['POST'])
+def profile_csv():
+    if 'file' not in request.files:
+        return jsonify({"error": "No CSV file provided"}), 400
+
+    file = request.files['file']
+    if file.filename == '' or not allowed_file(file.filename, ALLOWED_CSV_EXTENSIONS):
+        return jsonify({"error": "Invalid CSV file extension"}), 400
+
+    try:
+        df = pd.read_csv(file)
+        profile = ProfileReport(df, minimal=True)
+        output_path = "static/profile_report.html"
+        profile.to_file(output_path)
+        return send_file(output_path)
+
+    except Exception as e:
+        return jsonify({"error": f"CSV profiling failed: {str(e)}"}), 500
+
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
+    # Chạy app Flask trên 0.0.0.0 port 5000, phù hợp với Render
+    app.run(host='0.0.0.0', port=5000, debug=False)
