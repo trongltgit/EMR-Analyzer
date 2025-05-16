@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request, jsonify
 import os
 import pandas as pd
 from ydata_profiling import ProfileReport
@@ -11,12 +11,12 @@ app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = 'uploads'
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
-# Load model chỉ một lần duy nhất
+# Load model duy nhất 1 lần
 model = tf.keras.models.load_model('models/best_model.keras')
 
 def preprocess_image(image_path):
     img = Image.open(image_path).convert('RGB')
-    img = img.resize((224, 224))  # tùy thuộc vào input shape của model
+    img = img.resize((224, 224))
     img_array = np.array(img) / 255.0
     return np.expand_dims(img_array, axis=0)
 
@@ -28,41 +28,60 @@ def index():
 def dashboard():
     return render_template('dashboard.html')
 
-@app.route('/emr_profile', methods=['GET', 'POST'])
+@app.route('/emr_profile', methods=['GET'])
 def emr_profile():
-    profile_html = None
-    if request.method == 'POST':
-        file = request.files['csv_file']
-        if file:
-            filename = secure_filename(file.filename)
-            file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-            file.save(file_path)
+    return render_template('EMR_Profile.html')
 
-            df = pd.read_csv(file_path)
-            profile = ProfileReport(df, title="EMR Profile Report", explorative=True)
-            profile_path = os.path.join(app.config['UPLOAD_FOLDER'], 'profile_report.html')
-            profile.to_file(profile_path)
+@app.route('/upload_csv', methods=['POST'])
+def upload_csv():
+    if 'file' not in request.files:
+        return jsonify({'error': 'Không có file trong yêu cầu.'}), 400
 
-            with open(profile_path, 'r', encoding='utf-8') as f:
-                profile_html = f.read()
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({'error': 'Chưa chọn file.'}), 400
 
-    return render_template('EMR_Profile.html', profile_html=profile_html)
+    filename = secure_filename(file.filename)
+    file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+    file.save(file_path)
 
-@app.route('/emr_prediction', methods=['GET', 'POST'])
+    try:
+        df = pd.read_csv(file_path)
+        profile = ProfileReport(df, title='EMR Profile Report', explorative=True)
+        report_path = os.path.join(app.config['UPLOAD_FOLDER'], 'profile_report.html')
+        profile.to_file(report_path)
+        return jsonify({'report_url': f'/uploads/profile_report.html'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/emr_prediction', methods=['GET'])
 def emr_prediction():
-    result = None
-    if request.method == 'POST':
-        file = request.files['image_file']
-        if file:
-            filename = secure_filename(file.filename)
-            file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-            file.save(file_path)
+    return render_template('EMR_Prediction.html')
 
-            image = preprocess_image(file_path)
-            prediction = model.predict(image)[0][0]
-            result = 'Nodule' if prediction >= 0.5 else 'Non-Nodule'
+@app.route('/upload_image', methods=['POST'])
+def upload_image():
+    if 'image' not in request.files:
+        return jsonify({'error': 'Không có ảnh trong yêu cầu.'}), 400
 
-    return render_template('EMR_Prediction.html', result=result)
+    file = request.files['image']
+    if file.filename == '':
+        return jsonify({'error': 'Chưa chọn ảnh.'}), 400
+
+    filename = secure_filename(file.filename)
+    file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+    file.save(file_path)
+
+    try:
+        image = preprocess_image(file_path)
+        prediction = model.predict(image)[0][0]
+        label = 'Nodule' if prediction >= 0.5 else 'Non-Nodule'
+        return jsonify({'prediction': label})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/uploads/<path:filename>')
+def uploaded_file(filename):
+    return app.send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
 if __name__ == '__main__':
     app.run(debug=True)
