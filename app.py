@@ -5,30 +5,58 @@ import numpy as np
 import tensorflow as tf
 from tensorflow.keras.models import load_model
 from PIL import Image
-import io
 import pandas as pd
 from ydata_profiling import ProfileReport
+import py7zr
 
 app = Flask(__name__)
 CORS(app)
 
-# Load model once at startup
-MODEL_PATH = "models/best_weights_model.keras"  # Điều chỉnh đường dẫn đúng
-model = load_model(MODEL_PATH)
-
+# === CONFIG ===
+MODEL_FOLDER = "models"
+MODEL_PATH = os.path.join(MODEL_FOLDER, "best_weights_model.keras")
+MODEL_ARCHIVE = os.path.join(MODEL_FOLDER, "best_weights_model.7z")
+CHUNK_NAMES = [
+    "best_weights_model.keras.001",
+    "best_weights_model.keras.002",
+    "best_weights_model.keras.003",
+    "best_weights_model.keras.004"
+]
 ALLOWED_IMAGE_EXTENSIONS = {'png', 'jpg', 'jpeg'}
 ALLOWED_CSV_EXTENSIONS = {'csv'}
 
+# === JOIN & EXTRACT MODEL ===
+def prepare_model():
+    if os.path.exists(MODEL_PATH):
+        print("✅ Model already extracted.")
+        return
 
+    print("🔧 Reconstructing model from chunks...")
+    with open(MODEL_ARCHIVE, 'wb') as archive:
+        for chunk in CHUNK_NAMES:
+            chunk_path = os.path.join(MODEL_FOLDER, chunk)
+            with open(chunk_path, 'rb') as part:
+                archive.write(part.read())
+
+    print("📦 Extracting .7z archive...")
+    with py7zr.SevenZipFile(MODEL_ARCHIVE, mode='r') as archive:
+        archive.extractall(path=MODEL_FOLDER)
+
+    print("✅ Model extracted successfully.")
+
+# === INIT ===
+os.makedirs(MODEL_FOLDER, exist_ok=True)
+prepare_model()
+model = load_model(MODEL_PATH)
+
+# === UTILITY ===
 def allowed_file(filename, allowed_exts):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in allowed_exts
 
-
+# === ROUTES ===
 @app.route('/')
 def index():
-    # Trang chính, có thể redirect sang dashboard hoặc upload page
     return render_template('dashboard.html')
-
 
 @app.route('/predict', methods=['POST'])
 def predict():
@@ -41,13 +69,12 @@ def predict():
 
     try:
         image = Image.open(file.stream).convert('RGB')
-        image = image.resize((224, 224))  # Hoặc kích thước bạn dùng khi training
+        image = image.resize((224, 224))
         image_array = np.array(image) / 255.0
-        image_array = np.expand_dims(image_array, axis=0)  # (1, H, W, C)
+        image_array = np.expand_dims(image_array, axis=0)
 
         preds = model.predict(image_array)
-        # Giả sử model output dạng xác suất 2 lớp
-        class_index = np.argmax(preds, axis=1)[0]
+        class_index = int(np.argmax(preds, axis=1)[0])
         class_label = "Nodule" if class_index == 1 else "Non-Nodule"
         confidence = float(np.max(preds))
 
@@ -55,7 +82,6 @@ def predict():
 
     except Exception as e:
         return jsonify({"error": f"Prediction failed: {str(e)}"}), 500
-
 
 @app.route('/profile_csv', methods=['POST'])
 def profile_csv():
@@ -69,6 +95,7 @@ def profile_csv():
     try:
         df = pd.read_csv(file)
         profile = ProfileReport(df, minimal=True)
+        os.makedirs("static", exist_ok=True)
         output_path = "static/profile_report.html"
         profile.to_file(output_path)
         return send_file(output_path)
@@ -76,7 +103,6 @@ def profile_csv():
     except Exception as e:
         return jsonify({"error": f"CSV profiling failed: {str(e)}"}), 500
 
-
+# === ENTRYPOINT ===
 if __name__ == '__main__':
-    # Chạy app Flask trên 0.0.0.0 port 5000, phù hợp với Render
-    app.run(host='0.0.0.0', port=5000, debug=False)
+    app.run(host='0.0.0.0', port=5000)
