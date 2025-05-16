@@ -1,8 +1,8 @@
+# app.py
 import os
 from flask import Flask, request, jsonify, render_template, send_file
 from flask_cors import CORS
 import numpy as np
-import tensorflow as tf
 from tensorflow.keras.models import load_model
 from PIL import Image
 import pandas as pd
