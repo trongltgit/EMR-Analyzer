@@ -3,5 +3,4 @@ services:
     name: emr-analyzer
     env: python
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn app:app
-    plan: free
+    startCommand: python app.py
