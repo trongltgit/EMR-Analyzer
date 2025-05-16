@@ -31,44 +31,40 @@
   </div>
 
 <script>
-  const getApiBase = () => {
-    // Nếu chạy local (file:///), mặc định về localhost
-    if (location.hostname === "localhost") return "http://localhost:5000";
-    // Nếu chạy qua domain thật, dùng cùng domain (Render, etc.)
-    return "";
-  };
-
-  document.getElementById("analyze-button").addEventListener("click", async () => {
-    const fileInput = document.getElementById("upload");
-    if (!fileInput.files.length) {
-      alert("Vui lòng chọn một tệp CSV!");
-      return;
-    }
-
-    const formData = new FormData();
-    formData.append("file", fileInput.files[0]);
-
-    const resultMessage = document.getElementById("result-message");
-    resultMessage.innerText = "Đang phân tích...";
-
-    try {
-      const res = await fetch(`${getApiBase()}/upload_csv`, {
-        method: "POST",
-        body: formData,
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        resultMessage.innerText = `Lỗi: ${data.error}`;
+    document.getElementById("profile-button").addEventListener("click", async () => {
+      const csvFile = document.getElementById("csv-upload").files[0];
+      if (!csvFile) {
+        alert("Vui lòng chọn file CSV.");
         return;
       }
 
-      resultMessage.innerText = "Phân tích hoàn tất. Đang mở báo cáo...";
-      window.open(data.report_url, "_blank");
-    } catch (e) {
-      resultMessage.innerText = `Lỗi mạng: ${e.message}`;
-    }
-  });
+      const formData = new FormData();
+      formData.append("file", csvFile);
+
+      const status = document.getElementById("status");
+      status.innerText = "⏳ Đang xử lý...";
+
+      try {
+        const res = await fetch("/profile_csv", {
+          method: "POST",
+          body: formData
+        });
+
+        if (!res.ok) {
+          const err = await res.json();
+          status.innerText = `❌ Lỗi: ${err.error}`;
+          return;
+        }
+
+        const blob = await res.blob();
+        const url = window.URL.createObjectURL(blob);
+        window.open(url, "_blank");
+        status.innerText = "✅ Báo cáo đã được mở trong tab mới.";
+
+      } catch (err) {
+        status.innerText = `❌ Đã xảy ra lỗi: ${err.message}`;
+      }
+    });
 </script>
 </body>
 </html>
