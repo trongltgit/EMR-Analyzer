@@ -5,28 +5,39 @@ import pandas as pd
 import ydata_profiling
 import tensorflow as tf
 from tensorflow.keras.models import load_model
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Dense, Dropout
-from werkzeug.utils import secure_filename
+
 from PIL import Image
 import numpy as np
 
 app = Flask(__name__)
 
-# Tái tạo kiến trúc model giống lúc training
-def create_model():
-    model = Sequential()
-    model.add(Dense(128, activation='relu', input_shape=(your_input_shape,)))  # thay your_input_shape
-    model.add(Dropout(0.2))
-    model.add(Dense(64, activation='relu'))
-    model.add(Dense(num_classes, activation='softmax'))  # hoặc sigmoid tùy bài toán
-    return model
+def combine_model_parts(parts, output):
+    with open(output, 'wb') as wfd:
+        for part in parts:
+            with open(part, 'rb') as fd:
+                wfd.write(fd.read())
 
-# Tạo model
-model = create_model()
+# Danh sách các phần model đã split
+model_parts = [
+    'models/best_weights_model.keras.001',
+    'models/best_weights_model.keras.002',
+    'models/best_weights_model.keras.003',
+    'models/best_weights_model.keras.004',
+]
 
-# Load weights (chỉ cần prefix, không cần phần .001, .002...)
-model.load_weights('models/best_weights_model.keras')
+# File model gộp lại
+combined_model_path = 'models/best_weights_model.keras'
+
+# Nếu file combined chưa tồn tại hoặc bạn muốn luôn gộp lại
+if not os.path.exists(combined_model_path):
+    print("Đang ghép các phần model lại thành 1 file...")
+    combine_model_parts(model_parts, combined_model_path)
+    print("Hoàn thành ghép file model.")
+
+# Load model từ file đã ghép
+print("Đang load model từ file:", combined_model_path)
+model = load_model(combined_model_path)
+print("Model đã được load thành công!")
 
 
 @app.route('/')
