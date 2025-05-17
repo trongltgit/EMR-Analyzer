@@ -2,7 +2,7 @@
 <html lang="vi">
 <head>
   <meta charset="UTF-8">
-  <title>Dashboard - Phân tích hồ sơ EMR</title>
+  <title>Dashboard - Phân tích ảnh nốt phổi</title>
   <style>
     body { font-family: Arial, sans-serif; background: #e8f5e9; margin: 0; padding: 0; }
     .container { max-width: 700px; margin: 50px auto; background: #fff; padding: 30px; border-radius: 10px; box-shadow: 0 0 20px rgba(0,0,0,0.1); }
@@ -10,20 +10,18 @@
     .file-upload-container { margin-top: 20px; }
     #result-message { margin-top: 20px; font-size: 1.5rem; text-align: center; }
     .contact { margin-top: 30px; font-size: 14px; }
-/*     #ping-btn { margin-top: 20px; padding: 10px 20px; background: #2e7d32; color: #fff; border: none; border-radius: 5px; cursor: pointer; }
-    #ping-result { margin-top: 10px; font-size: 1rem; text-align: center; } */
+    #preview { display: block; max-width: 100%; margin-top: 20px; border-radius: 10px; }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>Chào mừng đến với Dashboard - Phân tích Hồ sơ EMR</h1>
-
-
-<p>Chọn ảnh để phân tích và xem kết quả phân loại giữa "Nodule" và "Non-Nodule".</p>
+    <h1>Chào mừng đến với Dashboard - Phân tích ảnh nốt phổi</h1>
+    <p>Chọn ảnh để phân tích và phân loại giữa "Nodule" và "Non-Nodule".</p>
     <div class="file-upload-container">
       <h2>Chọn ảnh để phân tích</h2>
       <input type="file" id="upload" accept="image/*">
       <button id="analyze-button">Phân tích</button>
+      <img id="preview" src="#" alt="Xem trước ảnh" style="display:none;">
       <div id="result-message"></div>
     </div>
     <div class="contact">
@@ -32,15 +30,17 @@
          159 Nam Kỳ Khởi Nghĩa, Quận 3, Tp. Hồ Chí Minh<br>
          Lại Nguyễn Minh Trí - <a href="mailto:laingminhtri@gmail.com">laingminhtri@gmail.com</a> - 0908083566</p>
     </div>
-   
- <script>
+
+  <script>
     const uploadInput = document.getElementById("upload");
     const previewImg = document.getElementById("preview");
+    const resultMessage = document.getElementById("result-message");
 
     uploadInput.addEventListener("change", () => {
       const file = uploadInput.files[0];
       if (file) {
         previewImg.src = URL.createObjectURL(file);
+        previewImg.style.display = "block";
       }
     });
 
@@ -54,7 +54,6 @@
       const formData = new FormData();
       formData.append("image", file);
 
-      const resultMessage = document.getElementById("result-message");
       resultMessage.innerText = "⏳ Đang phân tích...";
 
       try {
@@ -62,6 +61,7 @@
           method: "POST",
           body: formData
         });
+
         const data = await res.json();
 
         if (data.error) {
