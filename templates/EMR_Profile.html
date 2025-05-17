@@ -8,7 +8,7 @@
     .container { max-width: 700px; margin: 50px auto; background: #fff; padding: 30px; border-radius: 10px; box-shadow: 0 0 20px rgba(0,0,0,0.1); }
     h1 { color: #2e7d32; }
     .file-upload-container { margin-top: 20px; }
-    #result-message { margin-top: 20px; font-size: 1.5rem; text-align: center; }
+    #status { margin-top: 20px; font-size: 1.5rem; text-align: center; }
     .contact { margin-top: 30px; font-size: 14px; }
   </style>
 </head>
@@ -18,9 +18,9 @@
     <p>Chọn file CSV để phân tích hồ sơ bệnh án EMR.</p>
     <div class="file-upload-container">
       <h2>Tải lên file CSV</h2>
-      <input type="file" id="upload" accept=".csv">
-      <button id="analyze-button">Phân tích</button>
-      <div id="result-message"></div>
+      <input type="file" id="csv-upload" accept=".csv">
+      <button id="profile-button">Phân tích hồ sơ</button>
+      <div id="status"></div>
     </div>
     <div class="contact">
       <p><strong>Liên hệ:</strong><br>
@@ -31,40 +31,41 @@
   </div>
 
 <script>
-    document.getElementById("profile-button").addEventListener("click", async () => {
-      const csvFile = document.getElementById("csv-upload").files[0];
-      if (!csvFile) {
-        alert("Vui lòng chọn file CSV.");
+  document.getElementById("profile-button").addEventListener("click", async () => {
+    const csvFile = document.getElementById("csv-upload").files[0];
+    const status = document.getElementById("status");
+
+    if (!csvFile) {
+      alert("Vui lòng chọn file CSV.");
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("file", csvFile);
+
+    status.innerText = "⏳ Đang xử lý...";
+
+    try {
+      const res = await fetch("/profile_csv", {
+        method: "POST",
+        body: formData
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        status.innerText = `❌ Lỗi: ${err.error}`;
         return;
       }
 
-      const formData = new FormData();
-      formData.append("file", csvFile);
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      window.open(url, "_blank");
+      status.innerText = "✅ Báo cáo đã được mở trong tab mới.";
 
-      const status = document.getElementById("status");
-      status.innerText = "⏳ Đang xử lý...";
-
-      try {
-        const res = await fetch("/profile_csv", {
-          method: "POST",
-          body: formData
-        });
-
-        if (!res.ok) {
-          const err = await res.json();
-          status.innerText = `❌ Lỗi: ${err.error}`;
-          return;
-        }
-
-        const blob = await res.blob();
-        const url = window.URL.createObjectURL(blob);
-        window.open(url, "_blank");
-        status.innerText = "✅ Báo cáo đã được mở trong tab mới.";
-
-      } catch (err) {
-        status.innerText = `❌ Đã xảy ra lỗi: ${err.message}`;
-      }
-    });
+    } catch (err) {
+      status.innerText = `❌ Đã xảy ra lỗi: ${err.message}`;
+    }
+  });
 </script>
 </body>
 </html>
