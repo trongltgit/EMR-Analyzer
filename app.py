@@ -1,92 +1,77 @@
-from flask import Flask, request, render_template, redirect, url_for
 import os
-import tensorflow as tf
-from tensorflow.keras.models import load_model
-from PIL import Image
-import numpy as np
+import uuid
 import pandas as pd
+from flask import Flask, render_template, request, redirect, url_for
 from ydata_profiling import ProfileReport
+from tensorflow.keras.models import load_model
 
-# Initialize Flask app
 app = Flask(__name__)
+app.config['UPLOAD_FOLDER'] = 'uploads'
+app.config['PROFILE_FOLDER'] = 'static/profile'
+app.config['ALLOWED_EXTENSIONS'] = {'csv'}
 
-# Setup folders
-UPLOAD_FOLDER = 'uploads'
+# Ensure folders exist
+os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+os.makedirs(app.config['PROFILE_FOLDER'], exist_ok=True)
+
+# Load model
 MODEL_PATH = 'models/best_weights_model.keras'
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-os.makedirs('models', exist_ok=True)
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+model = load_model(MODEL_PATH)
 
-# Load model safely
-model = None
-if os.path.exists(MODEL_PATH):
-    try:
-        model = load_model(MODEL_PATH)
-        print("✅ Model loaded successfully.")
-    except Exception as e:
-        print(f"❌ Failed to load model: {e}")
-else:
-    print(f"❌ Model file not found at: {MODEL_PATH}")
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in app.config['ALLOWED_EXTENSIONS']
 
 @app.route('/')
-def index():
+def home():
     return render_template('index.html')
 
-@app.route('/dashboard')
-def dashboard():
-    return render_template('dashboard.html')
-
-
-@app.route('/emr_profile')
+@app.route('/emr-profile', methods=['GET', 'POST'])
 def emr_profile():
-    return render_template('EMR_Profile.html')
+    if request.method == 'POST':
+        file = request.files.get('file')
+        if file and allowed_file(file.filename):
+            filename = str(uuid.uuid4()) + '.csv'
+            filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            file.save(filepath)
 
-@app.route('/emr_prediction')
-def emr_prediction():
-    return render_template('EMR_Prediction.html')
-    
-
-@app.route('/upload_csv', methods=['POST'])
-def upload_csv():
-    file = request.files.get('csv_file')
-    if file and file.filename.endswith('.csv'):
-        filepath = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
-        file.save(filepath)
-        try:
             df = pd.read_csv(filepath)
-            profile = ProfileReport(df, title="EMR Profiling Report", explorative=True)
-            profile.to_file("templates/EMR_Profile.html")
-            return redirect(url_for('view_profile'))
-        except Exception as e:
-            return f"❌ Failed to generate profile: {e}"
-    return "⚠️ Invalid file format. Please upload a CSV file."
+            profile = ProfileReport(df, title="EMR Data Profile", explorative=True)
+            profile_name = f"profile_{uuid.uuid4().hex}.html"
+            profile_path = os.path.join(app.config['PROFILE_FOLDER'], profile_name)
+            profile.to_file(profile_path)
 
-@app.route('/view_profile')
-def view_profile():
-    return render_template('EMR_Profile.html')
+            return render_template('emr_profile.html', profile_url=url_for('static', filename=f'profile/{profile_name}'))
+        else:
+            return "❌ Invalid file. Please upload a CSV file."
 
-@app.route('/upload_image', methods=['POST'])
-def upload_image():
-    file = request.files.get('image_file')
-    if file:
-        filepath = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
-        file.save(filepath)
-        try:
-            image = Image.open(filepath).resize((224, 224)).convert('RGB')
-            image_array = np.array(image) / 255.0
-            image_array = np.expand_dims(image_array, axis=0)
-            prediction = model.predict(image_array)
-            result = 'Nodule' if prediction[0][0] > 0.5 else 'Non-Nodule'
-            return render_template('EMR_Prediction.html', result=result)
-        except Exception as e:
-            return f"❌ Error processing image: {e}"
-    return "⚠️ No image uploaded."
+    return render_template('emr_profile.html', profile_url=None)
 
-@app.route('/view_prediction')
-def view_prediction():
-    return render_template('EMR_Prediction.html')
+@app.route('/emr-prediction', methods=['GET', 'POST'])
+def emr_prediction():
+    if request.method == 'POST':
+        file = request.files.get('file')
+        if file and allowed_file(file.filename):
+            filename = str(uuid.uuid4()) + '.csv'
+            filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            file.save(filepath)
 
-# Required for Render deployment
-app_port = int(os.environ.get("PORT", 10000))
+            df = pd.read_csv(filepath)
+
+            # Preprocess: Drop non-numeric, fillna, convert to float
+            X = df.select_dtypes(include=['number']).fillna(0)
+
+            predictions = model.predict(X)
+            predicted_classes = (predictions > 0.5).astype(int)
+
+            df['Prediction'] = predicted_classes
+
+            table_html = df.to_html(classes='table table-bordered table-striped', index=False)
+
+            return render_template('emr_prediction.html', table_html=table_html)
+        else:
+            return "❌ Invalid file. Please upload a CSV file."
+
+    return render_template('emr_prediction.html', table_html=None)
+
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=app_port)
+    app.run(debug=True)
