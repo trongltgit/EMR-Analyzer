@@ -5,26 +5,28 @@ import pandas as pd
 import ydata_profiling
 import tensorflow as tf
 from tensorflow.keras.models import load_model
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense, Dropout
 from werkzeug.utils import secure_filename
 from PIL import Image
 import numpy as np
 
 app = Flask(__name__)
 
-# Tạo secret_key: lấy từ biến môi trường hoặc sinh mới nếu chưa có
-app.secret_key = os.environ.get('SECRET_KEY') or secrets.token_hex(16)
+# Tái tạo kiến trúc model giống lúc training
+def create_model():
+    model = Sequential()
+    model.add(Dense(128, activation='relu', input_shape=(your_input_shape,)))  # thay your_input_shape
+    model.add(Dropout(0.2))
+    model.add(Dense(64, activation='relu'))
+    model.add(Dense(num_classes, activation='softmax'))  # hoặc sigmoid tùy bài toán
+    return model
 
-UPLOAD_FOLDER = 'uploads'
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-ALLOWED_EXTENSIONS_CSV = {'csv'}
-ALLOWED_EXTENSIONS_IMG = {'png', 'jpg', 'jpeg'}
+# Tạo model
+model = create_model()
 
-# Load model TensorFlow (chỉnh đúng path)
-model = load_model('your_model.keras')
-
-def allowed_file(filename, allowed_set):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in allowed_set
+# Load weights (chỉ cần prefix, không cần phần .001, .002...)
+model.load_weights('models/best_weights_model.keras')
 
 
 @app.route('/')
