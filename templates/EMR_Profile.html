@@ -8,64 +8,26 @@
     .container { max-width: 700px; margin: 50px auto; background: #fff; padding: 30px; border-radius: 10px; box-shadow: 0 0 20px rgba(0,0,0,0.1); }
     h1 { color: #2e7d32; }
     .file-upload-container { margin-top: 20px; }
-    #status { margin-top: 20px; font-size: 1.5rem; text-align: center; }
     .contact { margin-top: 30px; font-size: 14px; }
+    a.button { background-color: #2e7d32; color: white; padding: 10px 20px; border-radius: 5px; text-decoration: none; display: inline-block; margin-top: 20px; }
   </style>
 </head>
 <body>
   <div class="container">
     <h1>Chào mừng đến với Dashboard - Phân tích Hồ sơ EMR</h1>
     <p>Chọn file CSV để phân tích hồ sơ bệnh án EMR.</p>
-    <div class="file-upload-container">
-      <h2>Tải lên file CSV</h2>
-      <input type="file" id="csv-upload" accept=".csv">
-      <button id="profile-button">Phân tích hồ sơ</button>
-      <div id="status"></div>
-    </div>
+    <form method="POST" enctype="multipart/form-data">
+      <input type="file" name="file" accept=".csv" required>
+      <button type="submit">Phân tích hồ sơ</button>
+    </form>
+    {% if profile_url %}
+      <p><a href="{{ profile_url }}" class="button" target="_blank">🔍 Xem báo cáo EMR</a></p>
+    {% endif %}
     <div class="contact">
       <p><strong>Liên hệ:</strong><br>
          Công ty TNHH MTV Minh Trí và những người bạn Marie Curie<br>
-         159 Nam Kỳ Khởi Nghĩa, Quận 3, Tp. Hồ Chí Minh<br>
-         Lại Nguyễn Minh Trí - <a href="mailto:laingminhtri@gmail.com">laingminhtri@gmail.com</a> - 0908083566</p>
+         Lại Nguyễn Minh Trí - <a href="mailto:laingminhtri@gmail.com">laingminhtri@gmail.com</a></p>
     </div>
   </div>
-
-<script>
-  document.getElementById("profile-button").addEventListener("click", async () => {
-    const csvFile = document.getElementById("csv-upload").files[0];
-    const status = document.getElementById("status");
-
-    if (!csvFile) {
-      alert("Vui lòng chọn file CSV.");
-      return;
-    }
-
-    const formData = new FormData();
-    formData.append("file", csvFile);
-
-    status.innerText = "⏳ Đang xử lý...";
-
-    try {
-      const res = await fetch("/profile_csv", {
-        method: "POST",
-        body: formData
-      });
-
-      if (!res.ok) {
-        const err = await res.json();
-        status.innerText = `❌ Lỗi: ${err.error}`;
-        return;
-      }
-
-      const blob = await res.blob();
-      const url = window.URL.createObjectURL(blob);
-      window.open(url, "_blank");
-      status.innerText = "✅ Báo cáo đã được mở trong tab mới.";
-
-    } catch (err) {
-      status.innerText = `❌ Đã xảy ra lỗi: ${err.message}`;
-    }
-  });
-</script>
 </body>
 </html>
