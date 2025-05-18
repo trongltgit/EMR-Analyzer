@@ -2,29 +2,62 @@
 <html lang="vi">
 <head>
   <meta charset="UTF-8">
-  <title>Dự đoán ảnh y tế EMR</title>
+  <title>Dự đoán từ hồ sơ EMR</title>
   <style>
-    body { font-family: Arial; background: #e8f5e9; padding: 0; margin: 0; }
-    .container { max-width: 700px; margin: 50px auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
-    h1 { color: #2e7d32; }
-    .result { margin-top: 20px; font-size: 18px; color: #1b5e20; }
-    .error { color: red; margin-top: 15px; }
-    .contact { margin-top: 30px; font-size: 14px; }
+    body {
+      font-family: Arial;
+      background: #e8f5e9;
+      padding: 0;
+      margin: 0;
+    }
+    .container {
+      max-width: 700px;
+      margin: 50px auto;
+      background: white;
+      padding: 30px;
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    h1 {
+      color: #2e7d32;
+    }
+    .error {
+      color: red;
+      margin-top: 15px;
+    }
+    .contact {
+      margin-top: 30px;
+      font-size: 14px;
+    }
+    .btn {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 5px;
+      color: white;
+      cursor: pointer;
+      font-size: 16px;
+      margin-top: 15px;
+    }
+    .btn-green {
+      background-color: #2e7d32;
+    }
+    .btn-dashboard {
+      background-color: #388e3c;
+      margin-left: 10px;
+      text-decoration: none;
+      display: inline-block;
+      line-height: 38px;
+    }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>Chào mừng đến với Dashboard - Dự đoán ảnh y tế EMR</h1>
+    <h1>Chào mừng đến với Dashboard - Dự đoán từ Hồ sơ EMR</h1>
     <form method="POST" enctype="multipart/form-data">
-      <input type="file" name="file" accept="image/*" required>
-      <button type="submit" color="green">Dự đoán</button>
+      <input type="file" name="file" accept=".csv,.xls,.xlsx" required>
+      <button type="submit" class="btn btn-green">Phân tích</button>
+      <a href="/dashboard.html" class="btn btn-dashboard">Quay lại Dashboard</a>
     </form>
-    {% if prediction %}
-      <div class="result">
-        <h2>Kết quả:</h2>
-        <p>{{ prediction }}</p>
-      </div>
-    {% endif %}
     {% if error %}
       <div class="error">{{ error }}</div>
     {% endif %}
