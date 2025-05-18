@@ -1,5 +1,5 @@
 import os
-from flask import Flask, render_template, request, send_file
+from flask import Flask, render_template, request, send_file, redirect, url_for
 import pandas as pd
 import numpy as np
 from tensorflow.keras.models import load_model
@@ -10,13 +10,18 @@ from ydata_profiling import ProfileReport
 
 app = Flask(__name__)
 
-# === Merge model nếu cần ===
-MODEL_PATH = 'models/best_weights_model.keras'
-if not os.path.exists(MODEL_PATH):
+# === Cấu hình ===
+MODEL_DIR = 'models'
+MERGED_MODEL_PATH = os.path.join(MODEL_DIR, 'best_weights_model.keras')
+app.config['UPLOAD_FOLDER'] = 'uploads'
+os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+
+# === Ghép model từ các phần nếu cần ===
+if not os.path.exists(MERGED_MODEL_PATH):
     try:
-        with open(MODEL_PATH, 'wb') as output_file:
+        with open(MERGED_MODEL_PATH, 'wb') as output_file:
             for i in range(1, 5):
-                part_filename = f'models/best_weights_model.keras.00{i}'
+                part_filename = os.path.join(MODEL_DIR, f'best_weights_model.keras.00{i}')
                 with open(part_filename, 'rb') as part:
                     output_file.write(part.read())
         print("✅ Model merged successfully.")
@@ -26,13 +31,17 @@ if not os.path.exists(MODEL_PATH):
 # === Load model ===
 model = None
 try:
-    if os.path.exists(MODEL_PATH):
-        model = load_model(MODEL_PATH)
+    if os.path.exists(MERGED_MODEL_PATH):
+        model = load_model(MERGED_MODEL_PATH)
         print("✅ Model loaded successfully.")
     else:
         print("⚠️ Model file not found.")
 except Exception as e:
     print(f"❌ Failed to load model: {e}")
+
+
+
+# === ROUTES ===
 
 @app.route('/')
 def home():
@@ -46,6 +55,7 @@ def dashboard():
 @app.route('/emr_profile.html', methods=['GET', 'POST'])
 def emr_profile():
     error = None
+    report_url = None
 
     if request.method == 'POST':
         file = request.files.get('file')
@@ -61,30 +71,38 @@ def emr_profile():
                     return render_template('emr_profile.html', error=error)
 
                 profile = ProfileReport(df, title="EMR Profiling Report", explorative=True)
-                temp_dir = tempfile.gettempdir()
-                unique_filename = f"profile_{uuid.uuid4().hex}.html"
-                report_path = os.path.join(temp_dir, unique_filename)
+                temp_dir = os.path.join('static', 'reports')
+                os.makedirs(temp_dir, exist_ok=True)
+
+                report_filename = f"profile_{uuid.uuid4().hex}.html"
+                report_path = os.path.join(temp_dir, report_filename)
                 profile.to_file(report_path)
-                return send_file(report_path, as_attachment=True)
+
+                report_url = '/' + report_path.replace('\\', '/')
 
             except Exception as e:
                 error = f"Lỗi khi xử lý file: {e}"
         else:
             error = "Vui lòng chọn một file để upload."
 
-    return render_template('emr_profile.html', error=error)
+    return render_template('emr_profile.html', error=error, report_url=report_url)
 
 @app.route('/emr_prediction', methods=['GET', 'POST'])
 @app.route('/emr_prediction.html', methods=['GET', 'POST'])
 def emr_prediction():
     prediction = None
     error = None
+    image_url = None
 
     if request.method == 'POST':
         file = request.files.get('file')
         if file:
             try:
-                image = Image.open(file).convert('RGB')
+                filename = secure_filename(file.filename)
+                filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+                file.save(filepath)
+
+                image = Image.open(filepath).convert('RGB')
                 image = image.resize((224, 224))
                 img_array = np.array(image) / 255.0
                 img_array = np.expand_dims(img_array, axis=0)
@@ -92,6 +110,7 @@ def emr_prediction():
                 if model:
                     y_pred = model.predict(img_array)[0][0]
                     prediction = "Nodule" if y_pred > 0.5 else "Non-Nodule"
+                    image_url = '/' + filepath.replace('\\', '/')
                 else:
                     error = "Model chưa được load."
 
@@ -100,8 +119,9 @@ def emr_prediction():
         else:
             error = "Vui lòng chọn một ảnh để upload."
 
-    return render_template('emr_prediction.html', prediction=prediction, error=error)
+    return render_template('emr_prediction.html', prediction=prediction, error=error, image_url=image_url)
 
+# === RUN APP ===
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
     app.run(debug=False, host="0.0.0.0", port=port)
