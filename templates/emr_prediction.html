@@ -4,62 +4,18 @@
   <meta charset="UTF-8">
   <title>Dashboard - Dự đoán ảnh y tế EMR</title>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #e8f5e9;
-      margin: 0;
-      padding: 0;
-    }
-    .container {
-      max-width: 800px;
-      margin: 50px auto;
-      background: #fff;
-      padding: 30px;
-      border-radius: 10px;
-      box-shadow: 0 0 20px rgba(0,0,0,0.1);
-    }
-    h1 {
-      color: #2e7d32;
-    }
-    form input[type="file"] {
-      margin-top: 10px;
-    }
-    form button {
-      margin-top: 15px;
-      padding: 10px 20px;
-      background-color: #2e7d32;
-      color: white;
-      border: none;
-      border-radius: 5px;
-      cursor: pointer;
-    }
-    form button:hover {
-      background-color: #1b5e20;
-    }
-    .result {
-      margin-top: 20px;
-      font-size: 18px;
-      color: #1b5e20;
-    }
-    .image-preview {
-      margin-top: 20px;
-      max-width: 400px;
-      border: 1px solid #ccc;
-      border-radius: 5px;
-    }
-    .contact {
-      margin-top: 30px;
-      font-size: 14px;
-    }
+    body { font-family: Arial, sans-serif; background: #e8f5e9; margin: 0; padding: 0; }
+    .container { max-width: 800px; margin: 50px auto; background: #fff; padding: 30px; border-radius: 10px; box-shadow: 0 0 20px rgba(0,0,0,0.1); }
+    h1 { color: #2e7d32; }
+    .contact { margin-top: 30px; font-size: 14px; }
+    .result { margin-top: 20px; font-size: 18px; color: #1b5e20; }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>Chào mừng đến với Dashboard - Dự đoán ảnh y tế EMR</h1>
-
+    <h1>Dự đoán ảnh y tế EMR</h1>
     <form method="POST" enctype="multipart/form-data">
       <input type="file" name="file" accept="image/*" required>
-      <br>
       <button type="submit">Dự đoán</button>
     </form>
 
@@ -67,13 +23,6 @@
       <div class="result">
         <h2>Kết quả dự đoán:</h2>
         <p>{{ prediction }}</p>
-      </div>
-    {% endif %}
-
-    {% if image_url %}
-      <div class="image-preview">
-        <p>Ảnh đã upload:</p>
-        <img src="{{ image_url }}" alt="Uploaded Image" class="img-fluid" style="max-width: 100%;">
       </div>
     {% endif %}
 
