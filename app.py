@@ -3,9 +3,7 @@ from flask import Flask, render_template, request, send_file
 import pandas as pd
 import numpy as np
 from tensorflow.keras.models import load_model
-from sklearn.preprocessing import MinMaxScaler
 from PIL import Image
-import io
 import tempfile
 import uuid
 from ydata_profiling import ProfileReport
@@ -39,14 +37,13 @@ else:
 # === Trang 1: Phân tích EMR hồ sơ bệnh án ===
 @app.route('/emr_profile', methods=['GET', 'POST'])
 def emr_profile():
-    report_path = None
     error = None
 
     if request.method == 'POST':
         file = request.files.get('file')
         if file:
             try:
-                filename = file.filename
+                filename = file.filename.lower()
                 if filename.endswith('.csv'):
                     df = pd.read_csv(file)
                 elif filename.endswith(('.xls', '.xlsx')):
@@ -79,7 +76,7 @@ def emr_prediction():
         if file:
             try:
                 image = Image.open(file).convert('RGB')
-                image = image.resize((224, 224))  # tùy thuộc vào input model
+                image = image.resize((224, 224))  # Kích thước đầu vào model
                 img_array = np.array(image) / 255.0
                 img_array = np.expand_dims(img_array, axis=0)
 
@@ -92,9 +89,6 @@ def emr_prediction():
 
     return render_template('emr_prediction.html', prediction=prediction, error=error)
 
-
-
-
 # === Trang chủ điều hướng ===
 @app.route('/')
 def home():
@@ -104,19 +98,6 @@ def home():
 def dashboard():
     return render_template('dashboard.html')
 
-
-@app.route('/emr_profile')
-def emr_profile():
-    return render_template('EMR_Profile.html')
-
-@app.route('/emr_prediction')
-def emr_prediction():
-    return render_template('EMR_Prediction.html')
-
-
-
-
 if __name__ == '__main__':
     debug_mode = os.environ.get('FLASK_DEBUG', 'False').lower() == 'true'
     app.run(debug=debug_mode, host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
-
