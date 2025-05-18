@@ -4,31 +4,11 @@
   <meta charset="UTF-8">
   <title>Phân tích hồ sơ EMR</title>
   <style>
-    body {
-      font-family: Arial;
-      background: #e8f5e9;
-      padding: 0;
-      margin: 0;
-    }
-    .container {
-      max-width: 700px;
-      margin: 50px auto;
-      background: white;
-      padding: 30px;
-      border-radius: 10px;
-      box-shadow: 0 0 10px rgba(0,0,0,0.1);
-    }
-    h1 {
-      color: #2e7d32;
-    }
-    .error {
-      color: red;
-      margin-top: 15px;
-    }
-    .contact {
-      margin-top: 30px;
-      font-size: 14px;
-    }
+    body { font-family: Arial; background: #e8f5e9; padding: 0; margin: 0; }
+    .container { max-width: 700px; margin: 50px auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+    h1 { color: #2e7d32; }
+    .error { color: red; margin-top: 15px; }
+    .contact { margin-top: 30px; font-size: 14px; }
     .btn {
       padding: 10px 20px;
       border: none;
@@ -56,7 +36,7 @@
     <form method="POST" enctype="multipart/form-data">
       <input type="file" name="file" accept=".csv,.xls,.xlsx" required>
       <button type="submit" class="btn btn-green">Phân tích</button>
-      <a href="/dashboard.html" class="btn btn-dashboard">Quay lại Dashboard</a>
+      <a href="/dashboard" class="btn btn-dashboard">Quay lại Dashboard</a>
     </form>
     {% if error %}
       <div class="error">{{ error }}</div>
