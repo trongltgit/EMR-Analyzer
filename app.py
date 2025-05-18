@@ -77,6 +77,18 @@ def home():
 def dashboard():
     return render_template('dashboard.html')
 
+
+@app.route("/check-model")
+def check_model():
+    path = "/opt/render/project/src/models/best_weights_model.keras"
+    if os.path.exists(path):
+        return "✅ File tồn tại!"
+    else:
+        return "❌ Không tìm thấy file!"
+
+
+
+
 @app.route('/emr_profile.html', methods=['GET', 'POST'])
 def emr_profile():
     error = None
