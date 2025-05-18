@@ -36,6 +36,7 @@ else:
 
 # === Trang 1: Phân tích EMR hồ sơ bệnh án ===
 @app.route('/emr_profile', methods=['GET', 'POST'])
+@app.route('/emr_profile.html', methods=['GET', 'POST'])
 def emr_profile():
     error = None
 
@@ -67,6 +68,7 @@ def emr_profile():
 
 # === Trang 2: Dự đoán từ ảnh y tế ===
 @app.route('/emr_prediction', methods=['GET', 'POST'])
+@app.route('/emr_prediction.html', methods=['GET', 'POST'])
 def emr_prediction():
     prediction = None
     error = None
@@ -97,6 +99,7 @@ def home():
 @app.route('/dashboard')
 def dashboard():
     return render_template('dashboard.html')
+
 
 if __name__ == '__main__':
     debug_mode = os.environ.get('FLASK_DEBUG', 'False').lower() == 'true'
