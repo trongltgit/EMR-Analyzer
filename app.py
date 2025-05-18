@@ -51,75 +51,61 @@ def home():
 def dashboard():
     return render_template('dashboard.html')
 
-@app.route('/emr_profile', methods=['GET', 'POST'])
-@app.route('/emr_profile.html', methods=['GET', 'POST'])
+@app.route("/emr_profile.html", methods=["GET", "POST"])
 def emr_profile():
-    error = None
-    report_url = None
+    if request.method == "POST":
+        file = request.files.get("file")
+        if not file:
+            return render_template("emr_profile.html", error="Vui lòng chọn file CSV hoặc Excel.")
+        filename = secure_filename(file.filename)
+        filepath = os.path.join(app.config["UPLOAD_FOLDER"], filename)
+        file.save(filepath)
 
-    if request.method == 'POST':
-        file = request.files.get('file')
-        if file:
-            try:
-                filename = file.filename.lower()
-                if filename.endswith('.csv'):
-                    df = pd.read_csv(file)
-                elif filename.endswith(('.xls', '.xlsx')):
-                    df = pd.read_excel(file)
-                else:
-                    error = "Chỉ hỗ trợ file CSV hoặc Excel."
-                    return render_template('emr_profile.html', error=error)
+        try:
+            if filename.endswith(".csv"):
+                df = pd.read_csv(filepath)
+            elif filename.endswith(".xlsx") or filename.endswith(".xls"):
+                df = pd.read_excel(filepath)
+            else:
+                return render_template("emr_profile.html", error="Định dạng file không được hỗ trợ.")
+            
+            # Phân tích cơ bản
+            report = df.describe().to_html(classes="table table-striped")
+            return f"<h2>Kết quả phân tích dữ liệu:</h2>{report}<br><a href='/emr_profile.html'>Quay lại</a>"
 
-                profile = ProfileReport(df, title="EMR Profiling Report", explorative=True)
-                temp_dir = os.path.join('static', 'reports')
-                os.makedirs(temp_dir, exist_ok=True)
+        except Exception as e:
+            return render_template("emr_profile.html", error=str(e))
+    return render_template("emr_profile.html")
 
-                report_filename = f"profile_{uuid.uuid4().hex}.html"
-                report_path = os.path.join(temp_dir, report_filename)
-                profile.to_file(report_path)
 
-                report_url = '/' + report_path.replace('\\', '/')
-
-            except Exception as e:
-                error = f"Lỗi khi xử lý file: {e}"
-        else:
-            error = "Vui lòng chọn một file để upload."
-
-    return render_template('emr_profile.html', error=error, report_url=report_url)
-
-@app.route('/emr_prediction', methods=['GET', 'POST'])
-@app.route('/emr_prediction.html', methods=['GET', 'POST'])
+@app.route("/emr_prediction.html", methods=["GET", "POST"])
 def emr_prediction():
-    prediction = None
-    error = None
-    image_url = None
+    if request.method == "POST":
+        file = request.files.get("file")
+        if not file:
+            return render_template("emr_prediction.html", error="Vui lòng chọn ảnh.")
 
-    if request.method == 'POST':
-        file = request.files.get('file')
-        if file:
-            try:
-                filename = secure_filename(file.filename)
-                filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-                file.save(filepath)
+        filename = secure_filename(file.filename)
+        filepath = os.path.join(app.config["UPLOAD_FOLDER"], filename)
+        file.save(filepath)
 
-                image = Image.open(filepath).convert('RGB')
-                image = image.resize((224, 224))
-                img_array = np.array(image) / 255.0
-                img_array = np.expand_dims(img_array, axis=0)
+        try:
+            if not model:
+                raise Exception("Không thể tải model.")
 
-                if model:
-                    y_pred = model.predict(img_array)[0][0]
-                    prediction = "Nodule" if y_pred > 0.5 else "Non-Nodule"
-                    image_url = '/' + filepath.replace('\\', '/')
-                else:
-                    error = "Model chưa được load."
+            # Dự đoán ảnh (resize về đúng shape model)
+            img = tf.keras.preprocessing.image.load_img(filepath, target_size=(224, 224))
+            img_array = tf.keras.preprocessing.image.img_to_array(img)
+            img_array = tf.expand_dims(img_array, 0) / 255.0
 
-            except Exception as e:
-                error = f"Lỗi xử lý ảnh: {e}"
-        else:
-            error = "Vui lòng chọn một ảnh để upload."
+            prediction = model.predict(img_array)
+            result = "Nodule" if prediction[0][0] > 0.5 else "Non-Nodule"
+            return render_template("emr_prediction.html", prediction=result)
 
-    return render_template('emr_prediction.html', prediction=prediction, error=error, image_url=image_url)
+        except Exception as e:
+            return render_template("emr_prediction.html", error=str(e))
+
+    return render_template("emr_prediction.html")
 
 # === RUN APP ===
 if __name__ == '__main__':
