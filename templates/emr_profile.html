@@ -39,12 +39,16 @@
       <a href="/dashboard" class="btn btn-dashboard">Quay lại Dashboard</a>
     </form>
     {% if error %}
-      <div class="error">{{ error }}</div>
+      <div class="error">{{ error|safe }}</div>
     {% endif %}
     <div class="contact">
       <p><strong>Liên hệ:</strong><br>
       Công ty TNHH MTV Minh Trí và những người bạn Marie Curie<br>
       <a href="mailto:laingminhtri@gmail.com">laingminhtri@gmail.com</a></p>
+    </div>
+    <div style="margin-top:16px;color:#888;font-size:13px;">
+      <b>Lưu ý:</b> Để tránh lỗi server, chỉ upload file có kích thước &lt; 10MB, số dòng &lt; 100.000 và số cột &lt; 100.<br>
+      Nếu file lớn, hãy lọc, giảm kích thước bằng Excel trước khi upload.
     </div>
   </div>
 </body>
