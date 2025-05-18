@@ -15,14 +15,17 @@
 <body>
   <div class="container">
     <h1>Chào mừng đến với Dashboard - Phân tích Hồ sơ EMR</h1>
-    <p>Chọn file CSV để phân tích hồ sơ bệnh án EMR.</p>
+    <p>Chọn file CSV hoặc Excel để phân tích hồ sơ bệnh án EMR.</p>
+
     <form method="POST" enctype="multipart/form-data">
-      <input type="file" name="file" accept=".csv" required>
+      <input type="file" name="file" accept=".csv, .xls, .xlsx" required>
       <button type="submit">Phân tích hồ sơ</button>
     </form>
-    {% if profile_url %}
-      <p><a href="{{ profile_url }}" class="button" target="_blank">🔍 Xem báo cáo EMR</a></p>
+
+    {% if error %}
+      <p style="color:red;">{{ error }}</p>
     {% endif %}
+
     <div class="contact">
       <p><strong>Liên hệ:</strong><br>
          Công ty TNHH MTV Minh Trí và những người bạn Marie Curie<br>
@@ -31,3 +34,4 @@
   </div>
 </body>
 </html>
+
