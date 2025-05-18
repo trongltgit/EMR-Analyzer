@@ -1,5 +1,5 @@
 import os
-from flask import Flask, render_template, request, send_file
+from flask import Flask, render_template, request, send_file, redirect, url_for
 import pandas as pd
 import numpy as np
 from tensorflow.keras.models import load_model
@@ -34,12 +34,24 @@ if os.path.exists(MODEL_PATH):
 else:
     print("⚠️ Model file not found.")
 
+
+# === Trang chủ điều hướng ===
+@app.route('/')
+def home():
+    return render_template('index.html')
+
+@app.route('/dashboard')
+def dashboard():
+    return render_template('dashboard.html')
+
+
 # === Trang 1: Phân tích EMR hồ sơ bệnh án ===
 @app.route('/emr_profile', methods=['GET', 'POST'])
 @app.route('/emr_profile.html', methods=['GET', 'POST'])
 def emr_profile():
     error = None
-
+    profile_url = None
+    
     if request.method == 'POST':
         file = request.files.get('file')
         if file:
@@ -58,7 +70,7 @@ def emr_profile():
                 unique_filename = f"profile_{uuid.uuid4().hex}.html"
                 report_path = os.path.join(temp_dir, unique_filename)
                 profile.to_file(report_path)
-                return send_file(report_path, as_attachment=True)
+                return send_file(report_path, as_attachment=True, download_name="EMR_Report.html")
             except Exception as e:
                 error = f"Lỗi khi xử lý file: {e}"
         else:
@@ -75,10 +87,12 @@ def emr_prediction():
 
     if request.method == 'POST':
         file = request.files.get('file')
-        if file:
+        if not model:
+            error = "Model chưa được tải. Vui lòng kiểm tra lại."
+        elif file:
             try:
                 image = Image.open(file).convert('RGB')
-                image = image.resize((224, 224))  # Kích thước đầu vào model
+                image = image.resize((224, 224))
                 img_array = np.array(image) / 255.0
                 img_array = np.expand_dims(img_array, axis=0)
 
@@ -91,14 +105,7 @@ def emr_prediction():
 
     return render_template('emr_prediction.html', prediction=prediction, error=error)
 
-# === Trang chủ điều hướng ===
-@app.route('/')
-def home():
-    return render_template('index.html')
 
-@app.route('/dashboard')
-def dashboard():
-    return render_template('dashboard.html')
 
 
 if __name__ == '__main__':
