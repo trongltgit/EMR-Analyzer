@@ -19,7 +19,7 @@ def merge_model_parts():
     """Tự động ghép các phần .keras.001, .keras.002,... thành file .keras"""
     part_files = sorted([
         f for f in os.listdir(MODEL_DIR)
-        if f.startswith(MODEL_FILENAME) and f[len(MODEL_FILENAME):].startswith(".")
+        if f.startswith(MODEL_FILENAME + ".")
     ])
     if not part_files:
         print("⚠️ Không tìm thấy các phần của model.")
@@ -38,18 +38,24 @@ def merge_model_parts():
         return False
 
 # Load model
-try:
-    if not os.path.exists(MODEL_PATH):
-        merge_model_parts()
+def try_load_model():
+    global model
+    try:
+        if not os.path.exists(MODEL_PATH):
+            merged = merge_model_parts()
+            if not merged:
+                print("⚠️ Model chưa được ghép.")
+        if os.path.exists(MODEL_PATH):
+            model = load_model(MODEL_PATH)
+            print("✅ Model đã được load.")
+        else:
+            print("⚠️ Không tìm thấy file model sau khi merge.")
+            model = None
+    except Exception as e:
+        print(f"❌ Lỗi khi load model: {e}")
+        model = None
 
-    if os.path.exists(MODEL_PATH):
-        model = load_model(MODEL_PATH)
-        print("✅ Model đã được load.")
-    else:
-        print("⚠️ Không tìm thấy file model sau khi merge.")
-except Exception as e:
-    print(f"❌ Lỗi khi load model: {e}")
-    model = None
+try_load_model()
 
 @app.route('/')
 def home():
@@ -71,11 +77,20 @@ def emr_profile():
         file.save(filepath)
 
         try:
-            df = pd.read_csv(filepath) if filename.endswith('.csv') else pd.read_excel(filepath)
+            # Đọc file CSV hoặc Excel
+            if filename.lower().endswith('.csv'):
+                df = pd.read_csv(filepath)
+            elif filename.lower().endswith(('.xls', '.xlsx')):
+                df = pd.read_excel(filepath)
+            else:
+                return render_template("emr_profile.html", error="Định dạng file không hợp lệ (chỉ nhận .csv, .xls, .xlsx).")
+
             profile = ProfileReport(df, title="EMR Report", minimal=True)
-            report_path = os.path.join('static', 'report.html')
+            report_dir = os.path.join('static', 'profile_reports')
+            os.makedirs(report_dir, exist_ok=True)
+            report_path = os.path.join(report_dir, 'report.html')
             profile.to_file(report_path)
-            return redirect(url_for('static', filename='report.html'))
+            return redirect(url_for('static', filename='profile_reports/report.html'))
         except Exception as e:
             return render_template("emr_profile.html", error=f"Lỗi khi phân tích: {e}")
 
@@ -84,13 +99,21 @@ def emr_profile():
 @app.route('/emr_prediction.html', methods=['GET', 'POST'])
 def emr_prediction():
     prediction = None
+    error = None
+
     if request.method == 'POST':
         file = request.files.get('file')
         if not file:
-            return render_template("emr_prediction.html", error="Vui lòng chọn ảnh.")
+            error = "Vui lòng chọn ảnh."
+            return render_template("emr_prediction.html", prediction=prediction, error=error)
 
+        # Reload model nếu model chưa load (phòng trường hợp container bị reload)
+        global model
         if model is None:
-            return render_template("emr_prediction.html", error="Model chưa được tải.")
+            try_load_model()
+        if model is None:
+            error = "Model chưa được tải hoặc không tồn tại. Hãy kiểm tra lại file model trên server."
+            return render_template("emr_prediction.html", prediction=prediction, error=error)
 
         filename = secure_filename(file.filename)
         filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
@@ -103,9 +126,9 @@ def emr_prediction():
             pred = model.predict(img_array)
             prediction = "Nodule" if pred[0][0] > 0.5 else "Non-Nodule"
         except Exception as e:
-            return render_template("emr_prediction.html", error=f"Lỗi khi dự đoán: {e}")
+            error = f"Lỗi khi dự đoán: {e}"
 
-    return render_template("emr_prediction.html", prediction=prediction)
+    return render_template("emr_prediction.html", prediction=prediction, error=error)
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=int(os.environ.get("PORT", 5000)))
