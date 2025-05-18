@@ -7,6 +7,8 @@ from PIL import Image
 import tempfile
 import uuid
 from ydata_profiling import ProfileReport
+import tensorflow as tf
+from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
 
@@ -16,7 +18,7 @@ MERGED_MODEL_PATH = os.path.join(MODEL_DIR, 'best_weights_model.keras')
 app.config['UPLOAD_FOLDER'] = 'uploads'
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
-# === Ghép model từ các phần nếu cần ===
+# Ghép model nếu cần
 if not os.path.exists(MERGED_MODEL_PATH):
     try:
         with open(MERGED_MODEL_PATH, 'wb') as output_file:
@@ -28,7 +30,7 @@ if not os.path.exists(MERGED_MODEL_PATH):
     except Exception as e:
         print(f"❌ Model merge failed: {e}")
 
-# === Load model ===
+# Load model
 model = None
 try:
     if os.path.exists(MERGED_MODEL_PATH):
@@ -38,8 +40,6 @@ try:
         print("⚠️ Model file not found.")
 except Exception as e:
     print(f"❌ Failed to load model: {e}")
-
-
 
 # === ROUTES ===
 
@@ -51,61 +51,57 @@ def home():
 def dashboard():
     return render_template('dashboard.html')
 
+# === Trang 1: Phân tích hồ sơ EMR (CSV) ===
 @app.route("/emr_profile.html", methods=["GET", "POST"])
 def emr_profile():
     if request.method == "POST":
-        file = request.files.get("file")
+        file = request.files["file"]
         if not file:
-            return render_template("emr_profile.html", error="Vui lòng chọn file CSV hoặc Excel.")
+            return render_template("emr_profile.html", error="Vui lòng chọn file.")
+
         filename = secure_filename(file.filename)
         filepath = os.path.join(app.config["UPLOAD_FOLDER"], filename)
         file.save(filepath)
 
         try:
-            if filename.endswith(".csv"):
-                df = pd.read_csv(filepath)
-            elif filename.endswith(".xlsx") or filename.endswith(".xls"):
-                df = pd.read_excel(filepath)
-            else:
-                return render_template("emr_profile.html", error="Định dạng file không được hỗ trợ.")
-            
-            # Phân tích cơ bản
-            report = df.describe().to_html(classes="table table-striped")
-            return f"<h2>Kết quả phân tích dữ liệu:</h2>{report}<br><a href='/emr_profile.html'>Quay lại</a>"
-
+            df = pd.read_csv(filepath) if filename.endswith('.csv') else pd.read_excel(filepath)
+            report_path = os.path.join("static", "report.html")
+            profile = ProfileReport(df, title="EMR Report", minimal=True)
+            profile.to_file(report_path)
+            return redirect(url_for('static', filename='report.html'))
         except Exception as e:
-            return render_template("emr_profile.html", error=str(e))
+            return render_template("emr_profile.html", error=f"Lỗi khi phân tích file: {e}")
+
     return render_template("emr_profile.html")
 
-
+# === Trang 2: Dự đoán ảnh EMR ===
 @app.route("/emr_prediction.html", methods=["GET", "POST"])
 def emr_prediction():
+    prediction = None
     if request.method == "POST":
-        file = request.files.get("file")
+        file = request.files["file"]
         if not file:
             return render_template("emr_prediction.html", error="Vui lòng chọn ảnh.")
 
+        if model is None:
+            return render_template("emr_prediction.html", error="Model chưa được tải.")
+
         filename = secure_filename(file.filename)
         filepath = os.path.join(app.config["UPLOAD_FOLDER"], filename)
         file.save(filepath)
 
         try:
-            if not model:
-                raise Exception("Không thể tải model.")
-
-            # Dự đoán ảnh (resize về đúng shape model)
             img = tf.keras.preprocessing.image.load_img(filepath, target_size=(224, 224))
             img_array = tf.keras.preprocessing.image.img_to_array(img)
-            img_array = tf.expand_dims(img_array, 0) / 255.0
+            img_array = tf.expand_dims(img_array, axis=0) / 255.0
 
-            prediction = model.predict(img_array)
-            result = "Nodule" if prediction[0][0] > 0.5 else "Non-Nodule"
-            return render_template("emr_prediction.html", prediction=result)
+            pred = model.predict(img_array)
+            prediction = "Nodule" if pred[0][0] > 0.5 else "Non-Nodule"
 
         except Exception as e:
-            return render_template("emr_prediction.html", error=str(e))
+            return render_template("emr_prediction.html", error=f"Lỗi khi dự đoán: {e}")
 
-    return render_template("emr_prediction.html")
+    return render_template("emr_prediction.html", prediction=prediction)
 
 # === RUN APP ===
 if __name__ == '__main__':
