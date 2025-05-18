@@ -97,14 +97,18 @@ def emr_profile():
             else:
                 return render_template("emr_profile.html", error="File không hợp lệ (chỉ nhận .csv, .xls, .xlsx).")
 
-            # Nếu file quá lớn, sinh profile có thể gây crash (502). Xử lý ngoại lệ bộ nhớ.
+            # Kiểm tra số dòng/cột để tránh crash khi sinh profile
+            if df.shape[0] > 100_000 or df.shape[1] > 100:
+                error = "File quá lớn (hơn 100.000 dòng hoặc 100 cột), không thể sinh báo cáo profile. Vui lòng thử file nhỏ hơn."
+                return render_template("emr_profile.html", error=error)
+
             try:
                 profile = ProfileReport(df, title="EMR Report", minimal=True)
                 report_path = os.path.join(STATIC_PROFILE_REPORTS, 'report.html')
                 profile.to_file(report_path)
                 return redirect(url_for('static', filename='profile_reports/report.html'))
-            except MemoryError as me:
-                error = "File quá lớn, không thể sinh báo cáo profile. Vui lòng thử file nhỏ hơn."
+            except MemoryError:
+                error = "File quá lớn, không thể sinh báo cáo profile (thiếu bộ nhớ RAM server). Vui lòng thử file nhỏ hơn."
             except Exception as e:
                 error = f"Lỗi khi sinh báo cáo: {e}"
         except Exception as e:
@@ -130,8 +134,11 @@ def emr_prediction():
             try_load_model()
         if model is None:
             error = (
-                f"Model chưa được tải hoặc không tồn tại trên server ({MODEL_PATH}). "
-                "Hãy kiểm tra lại log server, đảm bảo đã upload đủ các phần .keras.001, .keras.002,... vào thư mục models!"
+                f"Model chưa được tải hoặc không tồn tại trên server ({MODEL_PATH}).<br>"
+                "Hãy kiểm tra lại log server, đảm bảo đã upload đủ các phần .keras.001, .keras.002,... vào thư mục <b>models</b>!<br>"
+                "Hướng dẫn:<br>"
+                "1. Upload lần lượt tất cả các file <code>best_weights_model.keras.00X</code> lên thư mục <code>models/</code> trên server.<br>"
+                "2. Sau đó, truy cập lại trang này hoặc khởi động lại server.<br>"
             )
             return render_template("emr_prediction.html", prediction=prediction, error=error)
 
