@@ -34,8 +34,12 @@ def merge_model_parts():
         with open(MODEL_PATH, 'wb') as outfile:
             for part in part_files:
                 with open(os.path.join(MODELS_DIR, part), 'rb') as pf:
-                    outfile.write(pf.read())
-        print("✅ Ghép model thành công.")
+                    while True:
+                        chunk = pf.read(1024 * 1024)
+                        if not chunk:
+                            break
+                        outfile.write(chunk)
+        print(f"✅ Ghép model thành công! Đã tạo {MODEL_PATH} ({os.path.getsize(MODEL_PATH)} bytes)")
         return True
     except Exception as e:
         print(f"❌ Lỗi khi ghép model: {e}")
@@ -44,11 +48,14 @@ def merge_model_parts():
 def try_load_model():
     global model
     try:
+        print(f"🔍 Kiểm tra model ở: {MODEL_PATH}")
         if not os.path.exists(MODEL_PATH):
+            print("🔍 File model chưa tồn tại, thử merge...")
             merged = merge_model_parts()
             if not merged:
                 print("⚠️ Model chưa được ghép.")
         if os.path.exists(MODEL_PATH):
+            print("🔍 Đang load model...")
             model = load_model(MODEL_PATH)
             print("✅ Model đã được load.")
         else:
@@ -111,7 +118,7 @@ def emr_prediction():
         if model is None:
             try_load_model()
         if model is None:
-            error = f"Model chưa được tải hoặc không tồn tại trên server ({MODEL_PATH}). Hãy kiểm tra lại."
+            error = f"Model chưa được tải hoặc không tồn tại trên server ({MODEL_PATH}). Hãy kiểm tra lại log server."
             return render_template("emr_prediction.html", prediction=prediction, error=error)
 
         filename = secure_filename(file.filename)
