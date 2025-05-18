@@ -23,6 +23,7 @@ model = None
 
 def merge_model_parts():
     """Ghép các phần .keras.001, .keras.002,... thành file .keras"""
+    # Tìm tất cả các file có dạng .keras.001, .keras.002, ...
     part_files = sorted([
         f for f in os.listdir(MODELS_DIR)
         if f.startswith(MODEL_FILENAME + ".")
