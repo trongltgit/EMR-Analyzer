@@ -7,29 +7,33 @@ from werkzeug.utils import secure_filename
 import tensorflow as tf
 
 app = Flask(__name__)
-app.config['UPLOAD_FOLDER'] = 'uploads'
-os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
-MODEL_DIR = 'models'
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+UPLOAD_FOLDER = os.path.join(BASE_DIR, 'uploads')
+STATIC_PROFILE_REPORTS = os.path.join(BASE_DIR, 'static', 'profile_reports')
+MODELS_DIR = os.path.join(BASE_DIR, 'models')
 MODEL_FILENAME = 'best_weights_model.keras'
-MODEL_PATH = os.path.join(MODEL_DIR, MODEL_FILENAME)
+MODEL_PATH = os.path.join(MODELS_DIR, MODEL_FILENAME)
+
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+os.makedirs(STATIC_PROFILE_REPORTS, exist_ok=True)
+os.makedirs(MODELS_DIR, exist_ok=True)
+
 model = None
 
 def merge_model_parts():
-    """Tự động ghép các phần .keras.001, .keras.002,... thành file .keras"""
-    part_files = sorted([
-        f for f in os.listdir(MODEL_DIR)
-        if f.startswith(MODEL_FILENAME + ".")
-    ])
+    """Ghép các phần .keras.001, .keras.002,... thành file .keras"""
+    part_files = sorted(
+        [f for f in os.listdir(MODELS_DIR) if f.startswith(MODEL_FILENAME + ".")]
+    )
     if not part_files:
-        print("⚠️ Không tìm thấy các phần của model.")
+        print("⚠️ Không thấy các phần model.")
         return False
-
-    print(f"🔧 Đang ghép model từ các phần: {part_files}")
+    print(f"🔧 Ghép model từ các phần: {part_files}")
     try:
         with open(MODEL_PATH, 'wb') as outfile:
             for part in part_files:
-                with open(os.path.join(MODEL_DIR, part), 'rb') as pf:
+                with open(os.path.join(MODELS_DIR, part), 'rb') as pf:
                     outfile.write(pf.read())
         print("✅ Ghép model thành công.")
         return True
@@ -37,7 +41,6 @@ def merge_model_parts():
         print(f"❌ Lỗi khi ghép model: {e}")
         return False
 
-# Load model
 def try_load_model():
     global model
     try:
@@ -73,22 +76,19 @@ def emr_profile():
             return render_template("emr_profile.html", error="Vui lòng chọn file.")
 
         filename = secure_filename(file.filename)
-        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        filepath = os.path.join(UPLOAD_FOLDER, filename)
         file.save(filepath)
 
         try:
-            # Đọc file CSV hoặc Excel
             if filename.lower().endswith('.csv'):
                 df = pd.read_csv(filepath)
             elif filename.lower().endswith(('.xls', '.xlsx')):
                 df = pd.read_excel(filepath)
             else:
-                return render_template("emr_profile.html", error="Định dạng file không hợp lệ (chỉ nhận .csv, .xls, .xlsx).")
+                return render_template("emr_profile.html", error="File không hợp lệ (chỉ nhận .csv, .xls, .xlsx).")
 
             profile = ProfileReport(df, title="EMR Report", minimal=True)
-            report_dir = os.path.join('static', 'profile_reports')
-            os.makedirs(report_dir, exist_ok=True)
-            report_path = os.path.join(report_dir, 'report.html')
+            report_path = os.path.join(STATIC_PROFILE_REPORTS, 'report.html')
             profile.to_file(report_path)
             return redirect(url_for('static', filename='profile_reports/report.html'))
         except Exception as e:
@@ -107,16 +107,15 @@ def emr_prediction():
             error = "Vui lòng chọn ảnh."
             return render_template("emr_prediction.html", prediction=prediction, error=error)
 
-        # Reload model nếu model chưa load (phòng trường hợp container bị reload)
         global model
         if model is None:
             try_load_model()
         if model is None:
-            error = "Model chưa được tải hoặc không tồn tại. Hãy kiểm tra lại file model trên server."
+            error = f"Model chưa được tải hoặc không tồn tại trên server ({MODEL_PATH}). Hãy kiểm tra lại."
             return render_template("emr_prediction.html", prediction=prediction, error=error)
 
         filename = secure_filename(file.filename)
-        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        filepath = os.path.join(UPLOAD_FOLDER, filename)
         file.save(filepath)
 
         try:
@@ -131,4 +130,4 @@ def emr_prediction():
     return render_template("emr_prediction.html", prediction=prediction, error=error)
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=int(os.environ.get("PORT", 5000)))
+    app.run(debug=False, host='0.0.0.0', port=int(os.environ.get("PORT", 5000)))
