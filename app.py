@@ -7,6 +7,7 @@ from werkzeug.utils import secure_filename
 import tensorflow as tf
 
 app = Flask(__name__)
+app.config['MAX_CONTENT_LENGTH'] = 32 * 1024 * 1024  # Tăng giới hạn upload file lên 32MB
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 UPLOAD_FOLDER = os.path.join(BASE_DIR, 'uploads')
@@ -23,7 +24,6 @@ model = None
 
 def merge_model_parts():
     """Ghép các phần .keras.001, .keras.002,... thành file .keras"""
-    # Tìm tất cả các file có dạng .keras.001, .keras.002, ...
     part_files = sorted([
         f for f in os.listdir(MODELS_DIR)
         if f.startswith(MODEL_FILENAME + ".")
@@ -79,6 +79,7 @@ def dashboard():
 
 @app.route('/emr_profile.html', methods=['GET', 'POST'])
 def emr_profile():
+    error = None
     if request.method == 'POST':
         file = request.files.get('file')
         if not file:
@@ -96,14 +97,22 @@ def emr_profile():
             else:
                 return render_template("emr_profile.html", error="File không hợp lệ (chỉ nhận .csv, .xls, .xlsx).")
 
-            profile = ProfileReport(df, title="EMR Report", minimal=True)
-            report_path = os.path.join(STATIC_PROFILE_REPORTS, 'report.html')
-            profile.to_file(report_path)
-            return redirect(url_for('static', filename='profile_reports/report.html'))
+            # Nếu file quá lớn, sinh profile có thể gây crash (502). Xử lý ngoại lệ bộ nhớ.
+            try:
+                profile = ProfileReport(df, title="EMR Report", minimal=True)
+                report_path = os.path.join(STATIC_PROFILE_REPORTS, 'report.html')
+                profile.to_file(report_path)
+                return redirect(url_for('static', filename='profile_reports/report.html'))
+            except MemoryError as me:
+                error = "File quá lớn, không thể sinh báo cáo profile. Vui lòng thử file nhỏ hơn."
+            except Exception as e:
+                error = f"Lỗi khi sinh báo cáo: {e}"
         except Exception as e:
-            return render_template("emr_profile.html", error=f"Lỗi khi phân tích: {e}")
+            error = f"Lỗi khi phân tích: {e}"
 
-    return render_template("emr_profile.html")
+        return render_template("emr_profile.html", error=error)
+
+    return render_template("emr_profile.html", error=error)
 
 @app.route('/emr_prediction.html', methods=['GET', 'POST'])
 def emr_prediction():
