@@ -2,13 +2,14 @@
 <html lang="vi">
 <head>
   <meta charset="UTF-8">
-  <title>Dashboard - Dự đoán ảnh y tế EMR</title>
+  <title>Dự đoán ảnh y tế EMR</title>
   <style>
-    body { font-family: Arial, sans-serif; background: #e8f5e9; margin: 0; padding: 0; }
-    .container { max-width: 800px; margin: 50px auto; background: #fff; padding: 30px; border-radius: 10px; box-shadow: 0 0 20px rgba(0,0,0,0.1); }
+    body { font-family: Arial; background: #e8f5e9; padding: 0; margin: 0; }
+    .container { max-width: 700px; margin: 50px auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
     h1 { color: #2e7d32; }
-    .contact { margin-top: 30px; font-size: 14px; }
     .result { margin-top: 20px; font-size: 18px; color: #1b5e20; }
+    .error { color: red; margin-top: 15px; }
+    .contact { margin-top: 30px; font-size: 14px; }
   </style>
 </head>
 <body>
@@ -20,17 +21,17 @@
     </form>
     {% if prediction %}
       <div class="result">
-        <h2>Kết quả dự đoán:</h2>
+        <h2>Kết quả:</h2>
         <p>{{ prediction }}</p>
       </div>
     {% endif %}
     {% if error %}
-      <p style="color:red;">{{ error }}</p>
+      <div class="error">{{ error }}</div>
     {% endif %}
     <div class="contact">
       <p><strong>Liên hệ:</strong><br>
-         Công ty TNHH MTV Minh Trí và những người bạn Marie Curie<br>
-         Lại Nguyễn Minh Trí - <a href="mailto:laingminhtri@gmail.com">laingminhtri@gmail.com</a></p>
+      Công ty TNHH MTV Minh Trí và những người bạn Marie Curie<br>
+      <a href="mailto:laingminhtri@gmail.com">laingminhtri@gmail.com</a></p>
     </div>
   </div>
 </body>
