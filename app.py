@@ -1,5 +1,5 @@
 import os
-from flask import Flask, render_template, request, send_file, redirect, url_for
+from flask import Flask, render_template, request, send_file
 import pandas as pd
 import numpy as np
 from tensorflow.keras.models import load_model
@@ -10,7 +10,7 @@ from ydata_profiling import ProfileReport
 
 app = Flask(__name__)
 
-# === Tự động merge model nếu chưa tồn tại ===
+# === Merge model nếu cần ===
 MODEL_PATH = 'models/best_weights_model.keras'
 if not os.path.exists(MODEL_PATH):
     try:
@@ -25,17 +25,15 @@ if not os.path.exists(MODEL_PATH):
 
 # === Load model ===
 model = None
-if os.path.exists(MODEL_PATH):
-    try:
+try:
+    if os.path.exists(MODEL_PATH):
         model = load_model(MODEL_PATH)
         print("✅ Model loaded successfully.")
-    except Exception as e:
-        print(f"❌ Failed to load model: {e}")
-else:
-    print("⚠️ Model file not found.")
+    else:
+        print("⚠️ Model file not found.")
+except Exception as e:
+    print(f"❌ Failed to load model: {e}")
 
-
-# === Trang chủ điều hướng ===
 @app.route('/')
 def home():
     return render_template('index.html')
@@ -44,14 +42,11 @@ def home():
 def dashboard():
     return render_template('dashboard.html')
 
-
-# === Trang 1: Phân tích EMR hồ sơ bệnh án ===
 @app.route('/emr_profile', methods=['GET', 'POST'])
 @app.route('/emr_profile.html', methods=['GET', 'POST'])
 def emr_profile():
     error = None
-    profile_url = None
-    
+
     if request.method == 'POST':
         file = request.files.get('file')
         if file:
@@ -62,7 +57,7 @@ def emr_profile():
                 elif filename.endswith(('.xls', '.xlsx')):
                     df = pd.read_excel(file)
                 else:
-                    error = "Chỉ hỗ trợ định dạng CSV và Excel."
+                    error = "Chỉ hỗ trợ file CSV hoặc Excel."
                     return render_template('emr_profile.html', error=error)
 
                 profile = ProfileReport(df, title="EMR Profiling Report", explorative=True)
@@ -70,7 +65,8 @@ def emr_profile():
                 unique_filename = f"profile_{uuid.uuid4().hex}.html"
                 report_path = os.path.join(temp_dir, unique_filename)
                 profile.to_file(report_path)
-                return send_file(report_path, as_attachment=True, download_name="EMR_Report.html")
+                return send_file(report_path, as_attachment=True)
+
             except Exception as e:
                 error = f"Lỗi khi xử lý file: {e}"
         else:
@@ -78,7 +74,6 @@ def emr_profile():
 
     return render_template('emr_profile.html', error=error)
 
-# === Trang 2: Dự đoán từ ảnh y tế ===
 @app.route('/emr_prediction', methods=['GET', 'POST'])
 @app.route('/emr_prediction.html', methods=['GET', 'POST'])
 def emr_prediction():
@@ -87,17 +82,19 @@ def emr_prediction():
 
     if request.method == 'POST':
         file = request.files.get('file')
-        if not model:
-            error = "Model chưa được tải. Vui lòng kiểm tra lại."
-        elif file:
+        if file:
             try:
                 image = Image.open(file).convert('RGB')
                 image = image.resize((224, 224))
                 img_array = np.array(image) / 255.0
                 img_array = np.expand_dims(img_array, axis=0)
 
-                y_pred = model.predict(img_array)[0][0]
-                prediction = "Nodule" if y_pred > 0.5 else "Non-Nodule"
+                if model:
+                    y_pred = model.predict(img_array)[0][0]
+                    prediction = "Nodule" if y_pred > 0.5 else "Non-Nodule"
+                else:
+                    error = "Model chưa được load."
+
             except Exception as e:
                 error = f"Lỗi xử lý ảnh: {e}"
         else:
@@ -105,9 +102,6 @@ def emr_prediction():
 
     return render_template('emr_prediction.html', prediction=prediction, error=error)
 
-
-
-
 if __name__ == '__main__':
-    debug_mode = os.environ.get('FLASK_DEBUG', 'False').lower() == 'true'
-    app.run(debug=debug_mode, host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
+    port = int(os.environ.get("PORT", 5000))
+    app.run(debug=False, host="0.0.0.0", port=port)
