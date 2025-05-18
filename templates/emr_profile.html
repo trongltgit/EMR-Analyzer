@@ -4,68 +4,24 @@
   <meta charset="UTF-8">
   <title>Dashboard - Phân tích hồ sơ EMR</title>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #e8f5e9;
-      margin: 0;
-      padding: 0;
-    }
-    .container {
-      max-width: 700px;
-      margin: 50px auto;
-      background: #fff;
-      padding: 30px;
-      border-radius: 10px;
-      box-shadow: 0 0 20px rgba(0,0,0,0.1);
-    }
-    h1 {
-      color: #2e7d32;
-    }
-    form input[type="file"] {
-      margin-top: 10px;
-    }
-    form button {
-      margin-top: 15px;
-      padding: 10px 20px;
-      background-color: #2e7d32;
-      color: white;
-      border: none;
-      border-radius: 5px;
-      cursor: pointer;
-    }
-    form button:hover {
-      background-color: #1b5e20;
-    }
-    .contact {
-      margin-top: 30px;
-      font-size: 14px;
-    }
-    .report-link {
-      margin-top: 20px;
-      font-weight: bold;
-      color: #1b5e20;
-    }
+    body { font-family: Arial, sans-serif; background: #e8f5e9; margin: 0; padding: 0; }
+    .container { max-width: 700px; margin: 50px auto; background: #fff; padding: 30px; border-radius: 10px; box-shadow: 0 0 20px rgba(0,0,0,0.1); }
+    h1 { color: #2e7d32; }
+    .contact { margin-top: 30px; font-size: 14px; }
+    a.button { background-color: #2e7d32; color: white; padding: 10px 20px; border-radius: 5px; text-decoration: none; display: inline-block; margin-top: 20px; }
   </style>
 </head>
 <body>
   <div class="container">
     <h1>Chào mừng đến với Dashboard - Phân tích Hồ sơ EMR</h1>
     <p>Chọn file CSV hoặc Excel để phân tích.</p>
-
     <form method="POST" enctype="multipart/form-data">
       <input type="file" name="file" accept=".csv,.xlsx,.xls" required>
-      <br>
       <button type="submit">Phân tích hồ sơ</button>
     </form>
-
     {% if error %}
       <p style="color:red;">{{ error }}</p>
     {% endif %}
-
-    {% if report_url %}
-      <p class="report-link">✅ Báo cáo đã tạo thành công. <a href="{{ report_url }}" target="_blank">Xem tại đây</a></p>
-    {% endif %}
-
     <div class="contact">
       <p><strong>Liên hệ:</strong><br>
          Công ty TNHH MTV Minh Trí và những người bạn Marie Curie<br>
