@@ -7,7 +7,7 @@ from werkzeug.utils import secure_filename
 import tensorflow as tf
 
 app = Flask(__name__)
-app.config['MAX_CONTENT_LENGTH'] = 32 * 1024 * 1024  # Tăng giới hạn upload file lên 32MB
+app.config['MAX_CONTENT_LENGTH'] = 32 * 1024 * 1024  # Giới hạn upload file lên 32MB
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 UPLOAD_FOLDER = os.path.join(BASE_DIR, 'uploads')
@@ -48,6 +48,7 @@ def merge_model_parts():
         return False
 
 def try_load_model():
+    """Tải mô hình với kiểm tra lỗi chi tiết"""
     global model
     try:
         print(f"🔍 Kiểm tra model ở: {MODEL_PATH}")
@@ -56,7 +57,12 @@ def try_load_model():
             merged = merge_model_parts()
             if not merged:
                 print("⚠️ Model chưa được ghép.")
+        
         if os.path.exists(MODEL_PATH):
+            if not os.access(MODEL_PATH, os.R_OK):
+                print(f"⚠️ Không có quyền truy cập vào {MODEL_PATH}. Kiểm tra lại!")
+                return
+            
             print("🔍 Đang load model...")
             model = load_model(MODEL_PATH)
             print("✅ Model đã được load.")
@@ -77,20 +83,17 @@ def home():
 def dashboard():
     return render_template('dashboard.html')
 
-
 @app.route("/check-model")
 def check_model():
-    path = "/opt/render/project/src/models/best_weights_model.keras"
-    if os.path.exists(path):
+    """Kiểm tra sự tồn tại của file model"""
+    if os.path.exists(MODEL_PATH):
         return "✅ File tồn tại!"
     else:
         return "❌ Không tìm thấy file!"
 
-
-
-
 @app.route('/emr_profile.html', methods=['GET', 'POST'])
 def emr_profile():
+    """Xử lý tải file và tạo báo cáo hồ sơ EMR"""
     error = None
     if request.method == 'POST':
         file = request.files.get('file')
@@ -109,9 +112,8 @@ def emr_profile():
             else:
                 return render_template("emr_profile.html", error="File không hợp lệ (chỉ nhận .csv, .xls, .xlsx).")
 
-            # Kiểm tra số dòng/cột để tránh crash khi sinh profile
             if df.shape[0] > 100_000 or df.shape[1] > 100:
-                error = "File quá lớn (hơn 100.000 dòng hoặc 100 cột), không thể sinh báo cáo profile. Vui lòng thử file nhỏ hơn."
+                error = "File quá lớn (hơn 100.000 dòng hoặc 100 cột), không thể sinh báo cáo profile."
                 return render_template("emr_profile.html", error=error)
 
             try:
@@ -120,7 +122,7 @@ def emr_profile():
                 profile.to_file(report_path)
                 return redirect(url_for('static', filename='profile_reports/report.html'))
             except MemoryError:
-                error = "File quá lớn, không thể sinh báo cáo profile (thiếu bộ nhớ RAM server). Vui lòng thử file nhỏ hơn."
+                error = "File quá lớn, không thể sinh báo cáo profile (thiếu bộ nhớ RAM server)."
             except Exception as e:
                 error = f"Lỗi khi sinh báo cáo: {e}"
         except Exception as e:
@@ -132,6 +134,7 @@ def emr_profile():
 
 @app.route('/emr_prediction.html', methods=['GET', 'POST'])
 def emr_prediction():
+    """Xử lý dự đoán từ ảnh hồ sơ EMR"""
     prediction = None
     error = None
 
@@ -147,10 +150,7 @@ def emr_prediction():
         if model is None:
             error = (
                 f"Model chưa được tải hoặc không tồn tại trên server ({MODEL_PATH}).<br>"
-                "Hãy kiểm tra lại log server, đảm bảo đã upload đủ các phần .keras.001, .keras.002,... vào thư mục <b>models</b>!<br>"
-                "Hướng dẫn:<br>"
-                "1. Upload lần lượt tất cả các file <code>best_weights_model.keras.00X</code> lên thư mục <code>models/</code> trên server.<br>"
-                "2. Sau đó, truy cập lại trang này hoặc khởi động lại server.<br>"
+                "Hãy kiểm tra lại log server, đảm bảo đã upload đủ các phần .keras.001, .keras.002,... vào thư mục <b>models</b>!"
             )
             return render_template("emr_prediction.html", prediction=prediction, error=error)
 
