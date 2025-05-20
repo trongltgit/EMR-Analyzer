@@ -75,6 +75,71 @@ def try_load_model():
 
 try_load_model()
 
+
+
+# Cài đặt các thư viện cần thiết
+!pip install ydata-profiling
+!pip install gdown
+
+import pandas as pd
+import os
+import gdown
+from ydata_profiling import ProfileReport
+from sklearn.model_selection import train_test_split
+
+# File ID từ Google Drive (thay bằng ID thực tế)
+file_id = '1t_VjKggCbXBYwJowLbC898WKsFuxiNG9'  # Thay bằng ID thực tế
+output_file = 'healthcare_dataset.csv'
+
+# URL để tải file từ Google Drive
+gdown.download(f'https://drive.google.com/uc?id={file_id}', output_file, quiet=False)
+
+# Kiểm tra nếu file đã được tải thành công
+if not os.path.exists(output_file):
+    print(f"Error: File not found at {output_file}")
+else:
+    data = pd.read_csv(output_file)
+
+    # Tạo báo cáo
+    profile = ProfileReport(data, title='Pandas Profiling Report Dummy')
+
+    # Xuất báo cáo ra file
+    profile.to_file(output_file="report_dummy.html")
+    profile.to_file(output_file="report_dummy.json")
+
+    # Tách tập huấn luyện và kiểm thử
+    X_train, X_test = train_test_split(data, test_size=0.2, random_state=0)
+
+    # Hiển thị báo cáo (chỉ trong notebook)
+
+profile
+
+
+
+
+
+
+# File ID từ Google Drive (thay bằng ID thực tế)
+file_id = '1EpAgsWQSXi7CsUO8mEQDGAJyjdfN0T6n'  # Thay bằng ID thực tế
+output_file = 'best_weights_model.keras'
+
+# URL để tải file từ Google Drive
+gdown.download(f'https://drive.google.com/uc?id={file_id}', output_file, quiet=False)
+
+# Kiểm tra nếu file đã được tải thành công
+if not os.path.exists(output_file):
+    print(f"Error: File not found at {output_file}")
+else:
+   from tensorflow import keras
+
+model = keras.models.load_model("best_weights_model.keras")
+
+
+
+
+
+
+
 @app.route('/')
 def home():
     return render_template('index.html')
