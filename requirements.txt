@@ -1,8 +1,7 @@
-Flask==3.1.1
-tensorflow==2.15.0
-pandas==2.2.1
-ydata-profiling==4.6.4
-scikit-learn==1.4.2
-numpy
-Pillow
-gunicorn
+Flask==2.2.5
+pandas==1.5.3
+tensorflow==2.12.0
+ydata-profiling==4.3.1
+gdown==4.6.6
+gunicorn==20.1.0
+openpyxl==3.0.10
