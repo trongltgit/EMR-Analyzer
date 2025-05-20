@@ -14,31 +14,32 @@ app = Flask(__name__)
 UPLOAD_FOLDER = 'uploads'
 CSV_FOLDER = os.path.join(UPLOAD_FOLDER, 'csv')
 IMG_FOLDER = os.path.join(UPLOAD_FOLDER, 'images')
-MERGED_MODEL_PATH = 'models/best_weights_model.keras'
-DRIVE_FILE_ID = '1EpAgsWQSXi7CsUO8mEQDGAJyjdfN0T6n'  # Thay bằng real ID Google Drive
+MODEL_FOLDER = 'models'
+MERGED_MODEL_PATH = os.path.join(MODEL_FOLDER, 'best_weights_model.keras')
+DRIVE_FILE_ID = '1EpAgsWQSXi7CsUO8mEQDGAJyjdfN0T6n'  # Thay bằng ID thật nếu dùng Drive
 
-# Tạo thư mục nếu chưa có
+# --- Tạo thư mục nếu chưa có ---
 os.makedirs(CSV_FOLDER, exist_ok=True)
 os.makedirs(IMG_FOLDER, exist_ok=True)
-os.makedirs('models', exist_ok=True)
+os.makedirs(MODEL_FOLDER, exist_ok=True)
 
-# --- Hợp nhất model nếu bị chia nhỏ ---
+# --- Hợp nhất các phần model nếu có ---
 def merge_model_chunks():
     chunk_files = sorted([
-        f for f in os.listdir('models')
+        f for f in os.listdir(MODEL_FOLDER)
         if f.startswith('best_weights_model.keras') and not f.endswith('.keras')
     ])
     if chunk_files:
-        print("🔄 Hợp nhất model từ các phần:", chunk_files)
+        print("🔄 Đang hợp nhất model từ các phần:", chunk_files)
         with open(MERGED_MODEL_PATH, 'wb') as merged:
             for chunk in chunk_files:
-                with open(os.path.join('models', chunk), 'rb') as part:
+                with open(os.path.join(MODEL_FOLDER, chunk), 'rb') as part:
                     merged.write(part.read())
-        print("✅ Hợp nhất model thành công")
+        print("✅ Đã hợp nhất model")
         return True
     return False
 
-# --- Tải model từ Drive nếu cần ---
+# --- Tải model từ Google Drive nếu không có ---
 def download_model_from_drive():
     if not os.path.exists(MERGED_MODEL_PATH):
         print("📥 Tải model từ Google Drive...")
@@ -52,22 +53,19 @@ if not os.path.exists(MERGED_MODEL_PATH):
         download_model_from_drive()
 
 model = tf.keras.models.load_model(MERGED_MODEL_PATH)
-print("✅ Model đã load thành công")
+print("✅ Model đã được load thành công")
 
-
-
-# Trang chủ
+# --- Trang chủ ---
 @app.route('/')
 def home():
     return render_template('index.html')
 
-# Dashboard
+# --- Dashboard ---
 @app.route('/dashboard')
 def dashboard():
     return render_template('dashboard.html')
 
-
-# --- Phân tích hồ sơ EMR (CSV) ---
+# --- Phân tích hồ sơ EMR ---
 @app.route('/emr-profile', methods=['GET', 'POST'])
 def emr_profile():
     if request.method == 'POST':
@@ -94,19 +92,18 @@ def emr_prediction():
             file_path = os.path.join(IMG_FOLDER, filename)
             file.save(file_path)
 
-            # Xử lý ảnh
             image = Image.open(file_path).convert('RGB')
             image = image.resize((224, 224))
             image_array = np.array(image) / 255.0
             image_array = np.expand_dims(image_array, axis=0)
 
-            # Dự đoán
             prediction = model.predict(image_array)[0][0]
             result = 'Nodule' if prediction >= 0.5 else 'Non-Nodule'
 
             return render_template('emr_prediction.html', result=result, image_path='/' + file_path)
     return render_template('emr_prediction.html')
 
-# --- Chạy app ---
+# --- Chạy local (không dùng trên Render) ---
 if __name__ == '__main__':
-    app.run(debug=True)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host='0.0.0.0', port=port)
