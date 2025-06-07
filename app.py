@@ -38,9 +38,13 @@ def is_valid_keras_file(file_path):
 def download_model_from_drive():
     if not os.path.exists(MERGED_MODEL_PATH) or not is_valid_keras_file(MERGED_MODEL_PATH):
         print("📥 Tải model từ Google Drive...")
-        url = f"https://drive.google.com/uc?id={DRIVE_FILE_ID}"
-        gdown.download(url, MERGED_MODEL_PATH, quiet=False)
-        print("✅ Tải model thành công")
+        try:
+            url = f"https://drive.google.com/uc?id={DRIVE_FILE_ID}"
+            gdown.download(url, MERGED_MODEL_PATH, quiet=False)
+            print("✅ Tải model thành công")
+        except Exception as e:
+            print(f"❌ Lỗi khi tải model: {e}")
+            raise
 
 # --- Định nghĩa lớp InputLayer tùy chỉnh để chuyển khóa cấu hình 'batch_shape' ---
 class FixedInputLayer(tf.keras.layers.InputLayer):
@@ -52,6 +56,10 @@ class FixedInputLayer(tf.keras.layers.InputLayer):
 
 # --- Load model ---
 download_model_from_drive()
+
+# In gỡ lỗi để kiểm tra đường dẫn
+print("Thư mục làm việc hiện tại:", os.getcwd())
+print("Đường dẫn tuyệt đối của file model:", os.path.abspath(MERGED_MODEL_PATH))
 
 # Thiết lập custom_objects để hỗ trợ deserialization
 custom_objects = {
