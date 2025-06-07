@@ -33,7 +33,7 @@
 </head>
 <body>
   <div class="container">
-    <h1>Chào mừng đến với Dashboard - Dự đoán từ Hồ sơ EMR</h1>
+    <h1>Dự đoán từ Hồ sơ EMR</h1>
     <form method="POST" enctype="multipart/form-data">
       <input type="file" name="file" accept="image/*" required>
       <button type="submit" class="btn btn-green">Phân tích</button>
@@ -44,14 +44,19 @@
         <h2>Kết quả:</h2>
         <p>{{ prediction }}</p>
       </div>
+      {% if image_path %}
+        <div style="margin-top:20px;">
+          <img src="{{ image_path }}" alt="Ảnh đã tải lên" style="max-width:100%;">
+        </div>
+      {% endif %}
     {% endif %}
     {% if error %}
       <div class="error">{{ error|safe }}</div>
     {% endif %}
     <div class="contact">
       <p><strong>Liên hệ:</strong><br>
-      Công ty TNHH MTV Minh Trí và những người bạn Marie Curie<br>
-      <a href="mailto:laingminhtri@gmail.com">laingminhtri@gmail.com</a></p>
+         Công ty TNHH MTV Minh Trí và những người bạn Marie Curie<br>
+         <a href="mailto:laingminhtri@gmail.com">laingminhtri@gmail.com</a></p>
     </div>
     <div style="margin-top:16px;color:#888;font-size:13px;">
       Nếu lỗi model chưa được tải, hãy upload đủ các phần file model vào thư mục <b>models</b> trên server!
