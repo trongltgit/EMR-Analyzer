@@ -52,8 +52,9 @@ if not os.path.exists(MERGED_MODEL_PATH):
     if not merge_model_chunks():
         download_model_from_drive()
 
-# Nếu gặp lỗi load (ví dụ lỗi deserialize), dùng compile=False
-model = tf.keras.models.load_model(MERGED_MODEL_PATH, compile=False)
+# Sử dụng custom_objects để khắc phục lỗi deserialize liên quan đến lớp 'Functional'
+custom_objects = {"Functional": tf.keras.models.Model}
+model = tf.keras.models.load_model(MERGED_MODEL_PATH, compile=False, custom_objects=custom_objects)
 print("✅ Model đã được load thành công")
 
 # --- Trang chủ ---
