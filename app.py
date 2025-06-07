@@ -47,13 +47,25 @@ def download_model_from_drive():
         gdown.download(url, MERGED_MODEL_PATH, quiet=False)
         print("✅ Tải model thành công")
 
+# --- Định nghĩa lớp InputLayer tuỳ chỉnh để xử lý cấu hình lỗi batch_shape ---
+class FixedInputLayer(tf.keras.layers.InputLayer):
+    @classmethod
+    def from_config(cls, config, custom_objects=None):
+        # Chuyển batch_shape thành batch_input_shape nếu tồn tại
+        if "batch_shape" in config:
+            config["batch_input_shape"] = config.pop("batch_shape")
+        return super().from_config(config, custom_objects=custom_objects)
+
 # --- Load model ---
 if not os.path.exists(MERGED_MODEL_PATH):
     if not merge_model_chunks():
         download_model_from_drive()
 
-# Sử dụng custom_objects để khắc phục lỗi deserialize liên quan đến lớp 'Functional'
-custom_objects = {"Functional": tf.keras.models.Model}
+# Sử dụng custom_objects để khắc phục lỗi deserialize
+custom_objects = {
+    "Functional": tf.keras.models.Model, 
+    "InputLayer": FixedInputLayer  # dùng lớp FixedInputLayer đã định nghĩa
+}
 model = tf.keras.models.load_model(MERGED_MODEL_PATH, compile=False, custom_objects=custom_objects)
 print("✅ Model đã được load thành công")
 
