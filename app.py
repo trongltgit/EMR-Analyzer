@@ -8,6 +8,7 @@ from tensorflow.keras.mixed_precision import Policy
 from PIL import Image
 import numpy as np
 import gdown
+import zipfile
 
 app = Flask(__name__)
 
@@ -24,31 +25,24 @@ os.makedirs(CSV_FOLDER, exist_ok=True)
 os.makedirs(IMG_FOLDER, exist_ok=True)
 os.makedirs(MODEL_FOLDER, exist_ok=True)
 
-# --- Hợp nhất các phần model nếu có ---
-def merge_model_chunks():
-    chunk_files = sorted([
-        f for f in os.listdir(MODEL_FOLDER)
-        if f.startswith('best_weights_model.keras') and f != 'best_weights_model.keras'
-    ])
-    if chunk_files:
-        print("🔄 Đang hợp nhất model từ các phần:", chunk_files)
-        with open(MERGED_MODEL_PATH, 'wb') as merged:
-            for chunk in chunk_files:
-                with open(os.path.join(MODEL_FOLDER, chunk), 'rb') as part:
-                    merged.write(part.read())
-        print("✅ Đã hợp nhất model")
-        return True
-    return False
+# --- Kiểm tra file model có hợp lệ hay không (dạng zip) ---
+def is_valid_keras_file(file_path):
+    try:
+        with zipfile.ZipFile(file_path, 'r'):
+            return True
+    except zipfile.BadZipFile:
+        print(f"❌ File {file_path} không phải là file .keras hợp lệ.")
+        return False
 
-# --- Tải model từ Google Drive nếu không có ---
+# --- Tải model từ Google Drive nếu không có hoặc không hợp lệ ---
 def download_model_from_drive():
-    if not os.path.exists(MERGED_MODEL_PATH):
+    if not os.path.exists(MERGED_MODEL_PATH) or not is_valid_keras_file(MERGED_MODEL_PATH):
         print("📥 Tải model từ Google Drive...")
         url = f"https://drive.google.com/uc?id={DRIVE_FILE_ID}"
         gdown.download(url, MERGED_MODEL_PATH, quiet=False)
         print("✅ Tải model thành công")
 
-# --- Định nghĩa lớp InputLayer tùy chỉnh để chuyển khóa cấu hình 'batch_shape'
+# --- Định nghĩa lớp InputLayer tùy chỉnh để chuyển khóa cấu hình 'batch_shape' ---
 class FixedInputLayer(tf.keras.layers.InputLayer):
     @classmethod
     def from_config(cls, config, custom_objects=None):
@@ -57,9 +51,7 @@ class FixedInputLayer(tf.keras.layers.InputLayer):
         return super().from_config(config)
 
 # --- Load model ---
-if not os.path.exists(MERGED_MODEL_PATH):
-    if not merge_model_chunks():
-        download_model_from_drive()
+download_model_from_drive()
 
 # Thiết lập custom_objects để hỗ trợ deserialization
 custom_objects = {
