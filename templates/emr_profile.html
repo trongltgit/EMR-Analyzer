@@ -35,14 +35,14 @@
     <h1>Phân tích hồ sơ bệnh án EMR</h1>
     <form method="POST" enctype="multipart/form-data">
       <input type="file" name="file" accept=".csv" required>
-      <button type="submit">Tạo báo cáo</button>
-      <a href="/dashboard">Quay lại Dashboard</a>
+      <button type="submit" class="btn">Tạo báo cáo</button>
+      <a href="/dashboard" class="btn-dashboard">Quay lại Dashboard</a>
     </form>
     {% if report_url %}
       <iframe src="{{ report_url }}" style="width:100%; height:600px; margin-top:20px;" frameborder="0"></iframe>
     {% endif %}
     {% if error %}
-      <div style="color:red; margin-top:15px;">{{ error|safe }}</div>
+      <div class="error">{{ error|safe }}</div>
     {% endif %}
     <div class="contact">
       <p><strong>Liên hệ:</strong><br>
