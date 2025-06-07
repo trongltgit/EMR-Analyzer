@@ -4,7 +4,7 @@ import pandas as pd
 from ydata_profiling import ProfileReport
 from werkzeug.utils import secure_filename
 import tensorflow as tf
-from tensorflow.keras.mixed_precision import Policy  # dùng cho ánh xạ DTypePolicy
+from tensorflow.keras.mixed_precision import Policy
 from PIL import Image
 import numpy as np
 import gdown
@@ -52,23 +52,34 @@ def download_model_from_drive():
 class FixedInputLayer(tf.keras.layers.InputLayer):
     @classmethod
     def from_config(cls, config, custom_objects=None):
-        # Nếu tồn tại khóa 'batch_shape', chuyển thành 'batch_input_shape'
         if "batch_shape" in config:
             config["batch_input_shape"] = config.pop("batch_shape")
         return super().from_config(config)
+
+# --- Monkey-patch hàm process_node để xử lý khi inbound node là chuỗi
+# Chúng ta sẽ import hàm process_node từ module functional của Keras
+from keras.engine import functional as keras_functional
+_original_process_node = keras_functional.process_node
+def patched_process_node(layer, node_data):
+    # Nếu node_data là chuỗi, bỏ qua xử lý (trả về False) để tránh lỗi
+    if isinstance(node_data, str):
+        return False
+    return _original_process_node(layer, node_data)
+keras_functional.process_node = patched_process_node
 
 # --- Load model ---
 if not os.path.exists(MERGED_MODEL_PATH):
     if not merge_model_chunks():
         download_model_from_drive()
 
-# Bổ sung custom_objects: thêm ánh xạ cho Functional, InputLayer và DTypePolicy.
+# Thiết lập custom_objects để hỗ trợ deserialization
 custom_objects = {
     "Functional": tf.keras.models.Model,
     "InputLayer": FixedInputLayer,
-    "DTypePolicy": Policy  # ánh xạ đối tượng DTypePolicy xuống lớp Policy của tf.keras.mixed_precision
+    "DTypePolicy": Policy   # ánh xạ dtype policy
 }
 
+# Sử dụng compile=False để tránh load lại trạng thái optimizer/loss
 model = tf.keras.models.load_model(MERGED_MODEL_PATH, compile=False, custom_objects=custom_objects)
 print("✅ Model đã được load thành công")
 
