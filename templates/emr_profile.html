@@ -32,23 +32,22 @@
 </head>
 <body>
   <div class="container">
-    <h1>Chào mừng đến với Dashboard - Phân tích Hồ sơ EMR</h1>
+    <h1>Phân tích hồ sơ bệnh án EMR</h1>
     <form method="POST" enctype="multipart/form-data">
-      <input type="file" name="file" accept=".csv,.xls,.xlsx" required>
-      <button type="submit" class="btn btn-green">Phân tích</button>
-      <a href="/dashboard" class="btn btn-dashboard">Quay lại Dashboard</a>
+      <input type="file" name="file" accept=".csv" required>
+      <button type="submit">Tạo báo cáo</button>
+      <a href="/dashboard">Quay lại Dashboard</a>
     </form>
+    {% if report_url %}
+      <iframe src="{{ report_url }}" style="width:100%; height:600px; margin-top:20px;" frameborder="0"></iframe>
+    {% endif %}
     {% if error %}
-      <div class="error">{{ error|safe }}</div>
+      <div style="color:red; margin-top:15px;">{{ error|safe }}</div>
     {% endif %}
     <div class="contact">
       <p><strong>Liên hệ:</strong><br>
-      Công ty TNHH MTV Minh Trí và những người bạn Marie Curie<br>
-      <a href="mailto:laingminhtri@gmail.com">laingminhtri@gmail.com</a></p>
-    </div>
-    <div style="margin-top:16px;color:#888;font-size:13px;">
-      <b>Lưu ý:</b> Để tránh lỗi server, chỉ upload file có kích thước &lt; 10MB, số dòng &lt; 100.000 và số cột &lt; 100.<br>
-      Nếu file lớn, hãy lọc, giảm kích thước bằng Excel trước khi upload.
+         Công ty TNHH MTV Minh Trí và những người bạn Marie Curie<br>
+         <a href="mailto:laingminhtri@gmail.com">laingminhtri@gmail.com</a></p>
     </div>
   </div>
 </body>
