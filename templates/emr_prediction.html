@@ -33,11 +33,11 @@
 </head>
 <body>
   <div class="container">
-    <h1>Dự đoán từ Hồ sơ EMR</h1>
+    <h1>Dự đoán từ hồ sơ EMR</h1>
     <form method="POST" enctype="multipart/form-data">
       <input type="file" name="file" accept="image/*" required>
-      <button type="submit" class="btn btn-green">Phân tích</button>
-      <a href="/dashboard" class="btn btn-dashboard">Quay lại Dashboard</a>
+      <button type="submit" class="btn">Phân tích</button>
+      <a href="/dashboard" class="btn-dashboard">Quay lại Dashboard</a>
     </form>
     {% if prediction %}
       <div class="result">
