@@ -18,7 +18,7 @@ CSV_FOLDER = os.path.join(UPLOAD_FOLDER, 'csv')
 IMG_FOLDER = os.path.join(UPLOAD_FOLDER, 'images')
 MODEL_FOLDER = 'models'
 MERGED_MODEL_PATH = os.path.join(MODEL_FOLDER, 'best_weights_model.keras')
-DRIVE_FILE_ID = '1EpAgsWQSXi7CsUO8mEQDGAJyjdfN0T6n'  # Thay bằng ID thật nếu dùng Drive
+DRIVE_FILE_ID = '1EpAgsWQSXi7CsUO8mEQDGAJyjdfN0T6n'  # Đảm bảo file được chia sẻ công khai
 
 # --- Tạo thư mục nếu chưa có ---
 os.makedirs(CSV_FOLDER, exist_ok=True)
@@ -61,6 +61,11 @@ download_model_from_drive()
 print("Thư mục làm việc hiện tại:", os.getcwd())
 print("Đường dẫn tuyệt đối của file model:", os.path.abspath(MERGED_MODEL_PATH))
 
+# Kiểm tra xem file có tồn tại không
+if not os.path.exists(os.path.abspath(MERGED_MODEL_PATH)):
+    print(f"File not found after download: {os.path.abspath(MERGED_MODEL_PATH)}")
+    raise FileNotFoundError(f"File not found after download: {os.path.abspath(MERGED_MODEL_PATH)}")
+
 # Thiết lập custom_objects để hỗ trợ deserialization
 custom_objects = {
     "Functional": tf.keras.models.Model,
@@ -69,7 +74,7 @@ custom_objects = {
 }
 
 # Sử dụng compile=False để tránh load lại trạng thái optimizer/loss
-model = tf.keras.models.load_model(MERGED_MODEL_PATH, compile=False, custom_objects=custom_objects)
+model = tf.keras.models.load_model(os.path.abspath(MERGED_MODEL_PATH), compile=False, custom_objects=custom_objects)
 print("✅ Model đã được load thành công")
 
 # --- Trang chủ ---
