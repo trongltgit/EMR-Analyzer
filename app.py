@@ -52,7 +52,8 @@ if not os.path.exists(MERGED_MODEL_PATH):
     if not merge_model_chunks():
         download_model_from_drive()
 
-model = tf.keras.models.load_model(MERGED_MODEL_PATH)
+# Nếu gặp lỗi load (ví dụ lỗi deserialize), dùng compile=False
+model = tf.keras.models.load_model(MERGED_MODEL_PATH, compile=False)
 print("✅ Model đã được load thành công")
 
 # --- Trang chủ ---
@@ -63,7 +64,6 @@ def home():
 # --- Dashboard ---
 @app.route('/dashboard')
 def dashboard():
-    # Các link hướng đến các route, chứ không gọi trực tiếp đến file html
     return render_template('dashboard.html')
 
 # --- Phân tích hồ sơ EMR ---
@@ -75,7 +75,6 @@ def emr_profile():
             filename = secure_filename(file.filename)
             file_path = os.path.join(CSV_FOLDER, filename)
             file.save(file_path)
-
             try:
                 df = pd.read_csv(file_path)
                 profile = ProfileReport(df, title="EMR Profile Report", explorative=True)
@@ -95,13 +94,11 @@ def emr_prediction():
             filename = secure_filename(file.filename)
             file_path = os.path.join(IMG_FOLDER, filename)
             file.save(file_path)
-
             try:
                 image = Image.open(file_path).convert('RGB')
                 image = image.resize((224, 224))
                 image_array = np.array(image) / 255.0
                 image_array = np.expand_dims(image_array, axis=0)
-
                 prediction_value = model.predict(image_array)[0][0]
                 result = 'Nodule' if prediction_value >= 0.5 else 'Non-Nodule'
                 return render_template('emr_prediction.html', prediction=result, image_path='/' + file_path)
