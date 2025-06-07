@@ -27,7 +27,7 @@ os.makedirs(MODEL_FOLDER, exist_ok=True)
 def merge_model_chunks():
     chunk_files = sorted([
         f for f in os.listdir(MODEL_FOLDER)
-        if f.startswith('best_weights_model.keras') and not f.endswith('.keras')
+        if f.startswith('best_weights_model.keras') and f != 'best_weights_model.keras'
     ])
     if chunk_files:
         print("🔄 Đang hợp nhất model từ các phần:", chunk_files)
@@ -63,44 +63,50 @@ def home():
 # --- Dashboard ---
 @app.route('/dashboard')
 def dashboard():
+    # Các link hướng đến các route, chứ không gọi trực tiếp đến file html
     return render_template('dashboard.html')
 
 # --- Phân tích hồ sơ EMR ---
 @app.route('/emr-profile', methods=['GET', 'POST'])
 def emr_profile():
     if request.method == 'POST':
-        file = request.files['file']
+        file = request.files.get('file')
         if file:
             filename = secure_filename(file.filename)
             file_path = os.path.join(CSV_FOLDER, filename)
             file.save(file_path)
 
-            df = pd.read_csv(file_path)
-            profile = ProfileReport(df, title="EMR Profile Report", explorative=True)
-            report_path = os.path.join(CSV_FOLDER, 'report.html')
-            profile.to_file(report_path)
-            return render_template('emr_profile.html', report_url='/' + report_path)
+            try:
+                df = pd.read_csv(file_path)
+                profile = ProfileReport(df, title="EMR Profile Report", explorative=True)
+                report_path = os.path.join(CSV_FOLDER, 'report.html')
+                profile.to_file(report_path)
+                return render_template('emr_profile.html', report_url='/' + report_path)
+            except Exception as e:
+                return render_template('emr_profile.html', error=f"Lỗi khi tạo báo cáo: {e}")
     return render_template('emr_profile.html')
 
 # --- Dự đoán ảnh y tế ---
 @app.route('/emr-prediction', methods=['GET', 'POST'])
 def emr_prediction():
     if request.method == 'POST':
-        file = request.files['image']
+        file = request.files.get('file')
         if file:
             filename = secure_filename(file.filename)
             file_path = os.path.join(IMG_FOLDER, filename)
             file.save(file_path)
 
-            image = Image.open(file_path).convert('RGB')
-            image = image.resize((224, 224))
-            image_array = np.array(image) / 255.0
-            image_array = np.expand_dims(image_array, axis=0)
+            try:
+                image = Image.open(file_path).convert('RGB')
+                image = image.resize((224, 224))
+                image_array = np.array(image) / 255.0
+                image_array = np.expand_dims(image_array, axis=0)
 
-            prediction = model.predict(image_array)[0][0]
-            result = 'Nodule' if prediction >= 0.5 else 'Non-Nodule'
-
-            return render_template('emr_prediction.html', result=result, image_path='/' + file_path)
+                prediction_value = model.predict(image_array)[0][0]
+                result = 'Nodule' if prediction_value >= 0.5 else 'Non-Nodule'
+                return render_template('emr_prediction.html', prediction=result, image_path='/' + file_path)
+            except Exception as e:
+                return render_template('emr_prediction.html', error=f"Lỗi khi dự đoán: {e}")
     return render_template('emr_prediction.html')
 
 # --- Chạy local (không dùng trên Render) ---
