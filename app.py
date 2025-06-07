@@ -56,17 +56,6 @@ class FixedInputLayer(tf.keras.layers.InputLayer):
             config["batch_input_shape"] = config.pop("batch_shape")
         return super().from_config(config)
 
-# --- Monkey-patch hàm process_node để xử lý khi inbound node là chuỗi
-# Chúng ta sẽ import hàm process_node từ module functional của Keras
-from keras.engine import functional as keras_functional
-_original_process_node = keras_functional.process_node
-def patched_process_node(layer, node_data):
-    # Nếu node_data là chuỗi, bỏ qua xử lý (trả về False) để tránh lỗi
-    if isinstance(node_data, str):
-        return False
-    return _original_process_node(layer, node_data)
-keras_functional.process_node = patched_process_node
-
 # --- Load model ---
 if not os.path.exists(MERGED_MODEL_PATH):
     if not merge_model_chunks():
