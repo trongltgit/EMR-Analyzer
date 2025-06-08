@@ -1,133 +1,154 @@
-from flask import Flask, render_template, request
 import os
+from flask import Flask, render_template, request, redirect, url_for
 import pandas as pd
+from tensorflow.keras.models import load_model
 from ydata_profiling import ProfileReport
 from werkzeug.utils import secure_filename
 import tensorflow as tf
-from tensorflow.keras.mixed_precision import Policy
-from PIL import Image
-import numpy as np
-import gdown
-import zipfile
 
 app = Flask(__name__)
+app.config['MAX_CONTENT_LENGTH'] = 32 * 1024 * 1024  # Tăng giới hạn upload file lên 32MB
 
-# --- Cấu hình ---
-UPLOAD_FOLDER = 'uploads'
-CSV_FOLDER = os.path.join(UPLOAD_FOLDER, 'csv')
-IMG_FOLDER = os.path.join(UPLOAD_FOLDER, 'images')
-MODEL_FOLDER = 'models'
-MERGED_MODEL_PATH = os.path.join(MODEL_FOLDER, 'best_weights_model.keras')
-DRIVE_FILE_ID = '1EpAgsWQSXi7CsUO8mEQDGAJyjdfN0T6n'  # Đảm bảo file được chia sẻ công khai
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+UPLOAD_FOLDER = os.path.join(BASE_DIR, 'uploads')
+STATIC_PROFILE_REPORTS = os.path.join(BASE_DIR, 'static', 'profile_reports')
+MODELS_DIR = os.path.join(BASE_DIR, 'models')
+MODEL_FILENAME = 'best_weights_model.keras'
+MODEL_PATH = os.path.join(MODELS_DIR, MODEL_FILENAME)
 
-# --- Tạo thư mục nếu chưa có ---
-os.makedirs(CSV_FOLDER, exist_ok=True)
-os.makedirs(IMG_FOLDER, exist_ok=True)
-os.makedirs(MODEL_FOLDER, exist_ok=True)
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+os.makedirs(STATIC_PROFILE_REPORTS, exist_ok=True)
+os.makedirs(MODELS_DIR, exist_ok=True)
 
-# --- Kiểm tra file model có hợp lệ hay không (dạng zip) ---
-def is_valid_keras_file(file_path):
+model = None
+
+def merge_model_parts():
+    """Ghép các phần .keras.001, .keras.002,... thành file .keras"""
+    part_files = sorted([
+        f for f in os.listdir(MODELS_DIR)
+        if f.startswith(MODEL_FILENAME + ".")
+    ])
+    if not part_files:
+        print("⚠️ Không thấy các phần model.")
+        return False
+    print(f"🔧 Ghép model từ các phần: {part_files}")
     try:
-        with zipfile.ZipFile(file_path, 'r'):
-            return True
-    except zipfile.BadZipFile:
-        print(f"❌ File {file_path} không phải là file .keras hợp lệ.")
+        with open(MODEL_PATH, 'wb') as outfile:
+            for part in part_files:
+                with open(os.path.join(MODELS_DIR, part), 'rb') as pf:
+                    while True:
+                        chunk = pf.read(1024 * 1024)
+                        if not chunk:
+                            break
+                        outfile.write(chunk)
+        print(f"✅ Ghép model thành công! Đã tạo {MODEL_PATH} ({os.path.getsize(MODEL_PATH)} bytes)")
+        return True
+    except Exception as e:
+        print(f"❌ Lỗi khi ghép model: {e}")
         return False
 
-# --- Tải model từ Google Drive nếu không có hoặc không hợp lệ ---
-def download_model_from_drive():
-    if not os.path.exists(MERGED_MODEL_PATH) or not is_valid_keras_file(MERGED_MODEL_PATH):
-        print("📥 Tải model từ Google Drive...")
-        try:
-            url = f"https://drive.google.com/uc?id={DRIVE_FILE_ID}"
-            gdown.download(url, MERGED_MODEL_PATH, quiet=False)
-            print("✅ Tải model thành công")
-        except Exception as e:
-            print(f"❌ Lỗi khi tải model: {e}")
-            raise
+def try_load_model():
+    global model
+    try:
+        print(f"🔍 Kiểm tra model ở: {MODEL_PATH}")
+        if not os.path.exists(MODEL_PATH):
+            print("🔍 File model chưa tồn tại, thử merge...")
+            merged = merge_model_parts()
+            if not merged:
+                print("⚠️ Model chưa được ghép.")
+        if os.path.exists(MODEL_PATH):
+            print("🔍 Đang load model...")
+            model = load_model(MODEL_PATH)
+            print("✅ Model đã được load.")
+        else:
+            print("⚠️ Không tìm thấy file model sau khi merge.")
+            model = None
+    except Exception as e:
+        print(f"❌ Lỗi khi load model: {e}")
+        model = None
 
-# --- Định nghĩa lớp InputLayer tùy chỉnh để chuyển khóa cấu hình 'batch_shape' ---
-class FixedInputLayer(tf.keras.layers.InputLayer):
-    @classmethod
-    def from_config(cls, config, custom_objects=None):
-        if "batch_shape" in config:
-            config["batch_input_shape"] = config.pop("batch_shape")
-        return super().from_config(config)
+try_load_model()
 
-# --- Load model ---
-download_model_from_drive()
-
-# In gỡ lỗi để kiểm tra đường dẫn
-print("Thư mục làm việc hiện tại:", os.getcwd())
-print("Đường dẫn tuyệt đối của file model:", os.path.abspath(MERGED_MODEL_PATH))
-
-# Kiểm tra xem file có tồn tại không
-if not os.path.exists(os.path.abspath(MERGED_MODEL_PATH)):
-    print(f"File not found after download: {os.path.abspath(MERGED_MODEL_PATH)}")
-    raise FileNotFoundError(f"File not found after download: {os.path.abspath(MERGED_MODEL_PATH)}")
-
-# Thiết lập custom_objects để hỗ trợ deserialization
-custom_objects = {
-    "Functional": tf.keras.models.Model,
-    "InputLayer": FixedInputLayer,
-    "DTypePolicy": Policy   # ánh xạ dtype policy
-}
-
-# Sử dụng compile=False để tránh load lại trạng thái optimizer/loss
-model = tf.keras.models.load_model(os.path.abspath(MERGED_MODEL_PATH), compile=False, custom_objects=custom_objects)
-print("✅ Model đã được load thành công")
-
-# --- Trang chủ ---
 @app.route('/')
 def home():
     return render_template('index.html')
 
-# --- Dashboard ---
 @app.route('/dashboard')
 def dashboard():
     return render_template('dashboard.html')
 
-# --- Phân tích hồ sơ EMR ---
-@app.route('/emr-profile', methods=['GET', 'POST'])
+@app.route('/emr_profile.html', methods=['GET', 'POST'])
 def emr_profile():
+    error = None
     if request.method == 'POST':
         file = request.files.get('file')
-        if file:
-            filename = secure_filename(file.filename)
-            file_path = os.path.join(CSV_FOLDER, filename)
-            file.save(file_path)
+        if not file:
+            return render_template("emr_profile.html", error="Vui lòng chọn file.")
+
+        filename = secure_filename(file.filename)
+        filepath = os.path.join(UPLOAD_FOLDER, filename)
+        file.save(filepath)
+
+        try:
+            if filename.lower().endswith('.csv'):
+                df = pd.read_csv(filepath)
+            elif filename.lower().endswith(('.xls', '.xlsx')):
+                df = pd.read_excel(filepath)
+            else:
+                return render_template("emr_profile.html", error="File không hợp lệ (chỉ nhận .csv, .xls, .xlsx).")
+
+            # Nếu file quá lớn, sinh profile có thể gây crash (502). Xử lý ngoại lệ bộ nhớ.
             try:
-                df = pd.read_csv(file_path)
-                profile = ProfileReport(df, title="EMR Profile Report", explorative=True)
-                report_path = os.path.join(CSV_FOLDER, 'report.html')
+                profile = ProfileReport(df, title="EMR Report", minimal=True)
+                report_path = os.path.join(STATIC_PROFILE_REPORTS, 'report.html')
                 profile.to_file(report_path)
-                return render_template('emr_profile.html', report_url='/' + report_path)
+                return redirect(url_for('static', filename='profile_reports/report.html'))
+            except MemoryError as me:
+                error = "File quá lớn, không thể sinh báo cáo profile. Vui lòng thử file nhỏ hơn."
             except Exception as e:
-                return render_template('emr_profile.html', error=f"Lỗi khi tạo báo cáo: {e}")
-    return render_template('emr_profile.html')
+                error = f"Lỗi khi sinh báo cáo: {e}"
+        except Exception as e:
+            error = f"Lỗi khi phân tích: {e}"
 
-# --- Dự đoán ảnh y tế ---
-@app.route('/emr-prediction', methods=['GET', 'POST'])
+        return render_template("emr_profile.html", error=error)
+
+    return render_template("emr_profile.html", error=error)
+
+@app.route('/emr_prediction.html', methods=['GET', 'POST'])
 def emr_prediction():
+    prediction = None
+    error = None
+
     if request.method == 'POST':
         file = request.files.get('file')
-        if file:
-            filename = secure_filename(file.filename)
-            file_path = os.path.join(IMG_FOLDER, filename)
-            file.save(file_path)
-            try:
-                image = Image.open(file_path).convert('RGB')
-                image = image.resize((224, 224))
-                image_array = np.array(image) / 255.0
-                image_array = np.expand_dims(image_array, axis=0)
-                prediction_value = model.predict(image_array)[0][0]
-                result = 'Nodule' if prediction_value >= 0.5 else 'Non-Nodule'
-                return render_template('emr_prediction.html', prediction=result, image_path='/' + file_path)
-            except Exception as e:
-                return render_template('emr_prediction.html', error=f"Lỗi khi dự đoán: {e}")
-    return render_template('emr_prediction.html')
+        if not file:
+            error = "Vui lòng chọn ảnh."
+            return render_template("emr_prediction.html", prediction=prediction, error=error)
 
-# --- Chạy local (không dùng trên Render) ---
+        global model
+        if model is None:
+            try_load_model()
+        if model is None:
+            error = (
+                f"Model chưa được tải hoặc không tồn tại trên server ({MODEL_PATH}). "
+                "Hãy kiểm tra lại log server, đảm bảo đã upload đủ các phần .keras.001, .keras.002,... vào thư mục models!"
+            )
+            return render_template("emr_prediction.html", prediction=prediction, error=error)
+
+        filename = secure_filename(file.filename)
+        filepath = os.path.join(UPLOAD_FOLDER, filename)
+        file.save(filepath)
+
+        try:
+            img = tf.keras.preprocessing.image.load_img(filepath, target_size=(224, 224))
+            img_array = tf.keras.preprocessing.image.img_to_array(img)
+            img_array = tf.expand_dims(img_array, axis=0) / 255.0
+            pred = model.predict(img_array)
+            prediction = "Nodule" if pred[0][0] > 0.5 else "Non-Nodule"
+        except Exception as e:
+            error = f"Lỗi khi dự đoán: {e}"
+
+    return render_template("emr_prediction.html", prediction=prediction, error=error)
+
 if __name__ == '__main__':
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host='0.0.0.0', port=port)
+    app.run(debug=False, host='0.0.0.0', port=int(os.environ.get("PORT", 5000)))
