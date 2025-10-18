@@ -4,12 +4,28 @@
   <meta charset="UTF-8">
   <title>Phân tích hồ sơ EMR</title>
   <style>
-    /* CSS ĐỒNG BỘ */
-    body { font-family: Arial, sans-serif; background: #e8f5e9; padding: 0; margin: 0; }
-    .container { max-width: 700px; margin: 50px auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
-    h1 { color: #2e7d32; }
-    .error { color: red; margin-top: 15px; font-weight: bold; }
-    .contact { margin-top: 30px; font-size: 14px; }
+    /* CSS ĐỒNG BỘ - CĂN GIỮA VÀ TÔNG XANH */
+    body { 
+      font-family: Arial, sans-serif; 
+      background: #e8f5e9; /* Nền xanh nhạt */
+      padding: 0; 
+      margin: 0; 
+      min-height: 100vh; 
+      display: flex;
+      justify-content: center; 
+      align-items: center; 
+    }
+    .container { 
+      max-width: 700px; 
+      width: 90%; 
+      background: white; 
+      padding: 30px; 
+      border-radius: 10px; 
+      box-shadow: 0 0 25px rgba(0,0,0,0.15); 
+    }
+    h1 { color: #2e7d32; text-align: center; margin-bottom: 20px;} 
+    .error { color: #d32f2f; margin-top: 15px; font-weight: bold; padding: 10px; background: #ffebee; border-radius: 5px; border: 1px solid #ef9a9a;}
+    
     /* CSS cho NÚT */
     .btn {
       padding: 10px 20px;
@@ -18,25 +34,42 @@
       color: white;
       cursor: pointer;
       font-size: 16px;
-      margin-top: 15px;
-      display: inline-block;
-      line-height: 1.5;
-      background-color: #2e7d32;
+      background-color: #2e7d32; /* Màu xanh lá đậm */
+      transition: background-color 0.3s;
     }
     .btn:hover { background: #1b5e20; }
     .btn-dashboard {
-      background-color: #388e3c;
+      background-color: #388e3c; /* Màu xanh lá vừa */
       margin-left: 10px;
       text-decoration: none;
       display: inline-block;
-      line-height: 38px;
-      padding: 0 20px;
+      line-height: 38px; /* Căn chỉnh text trong nút */
+      padding: 0 20px; 
+      border-radius: 8px; 
+      color: white;
+      transition: background-color 0.3s;
     }
+    .btn-dashboard:hover { background: #2e7d32; }
     .form-group {
       display: flex;
       align-items: center;
       gap: 10px;
-      margin-top: 10px;
+      margin-top: 20px;
+    }
+
+    /* LIÊN HỆ */
+    .contact { 
+      margin-top: 30px; 
+      font-size: 14px; 
+      border-top: 1px solid #eee;
+      padding-top: 20px;
+      text-align: center;
+      color: #666;
+    }
+    .contact a {
+      color: #388e3c;
+      text-decoration: none;
+      font-weight: bold;
     }
   </style>
 </head>
@@ -46,26 +79,22 @@
     
     <form method="POST" enctype="multipart/form-data">
         <div class="form-group">
-                        <input type="file" name="file" accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel" required>
-                        <button type="submit" class="btn">Phân tích</button>
-            <a href="/dashboard" class="btn-dashboard">Quay lại Dashboard</a>
+            <input type="file" name="file" accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel" required style="flex-grow: 1;">
+            <button type="submit" class="btn">Phân tích</button>
+            <a href="/dashboard" class="btn-dashboard">Dashboard</a>
         </div>
     </form>
-    
-    {% if report_url %}
-          {% endif %}
     
     {% if error %}
       <div class="error">Lỗi: {{ error|safe }}</div>
     {% endif %}
     
     <div class="contact">
-      <p><strong>Liên hệ:</strong><br>
-         Công ty TNHH MTV Minh Trí và những người bạn Marie Curie<br>
-         159 Nam Kỳ Khởi Nghĩa, Quận 3, Tp. Hồ Chí Minh<br>
-         Lại Nguyễn Minh Trí - <a href="mailto:laingminhtri@gmail.com">laingminhtri@gmail.com</a> - 0908083566</p>
-    </div>   
+      <p><strong>Liên hệ:</strong><br>
+         Công ty TNHH MTV Minh Trí và những người bạn Marie Curie<br>
+         159 Nam Kỳ Khởi Nghĩa, Quận 3, Tp. Hồ Chí Minh<br>
+         Lại Nguyễn Minh Trí - <a href="mailto:laingminhtri@gmail.com">laingminhtri@gmail.com</a> - 0908083566</p>
+    </div>   
   </div>
 </body>
 </html>
-
