@@ -30,10 +30,7 @@ def allowed_file(filename):
 # Ghép các phần model keras
 # =============================
 def merge_model_files():
-    parts = [
-        os.path.join(MODEL_FOLDER, f"best_weights_model.keras.{i:03d}")
-        for i in range(1, 5)
-    ]
+    parts = [os.path.join(MODEL_FOLDER, f"best_weights_model.keras.{i:03d}") for i in range(1, 5)]
     if not all(os.path.exists(p) for p in parts):
         print("⚠️ Không tìm thấy đầy đủ model parts (.001–.004)")
         return None
@@ -161,16 +158,22 @@ def upload_image():
         flash('Chưa chọn ảnh hợp lệ.', 'warning')
         return redirect(url_for('emr_prediction'))
 
+    if not model:
+        flash('Model chưa load, không thể dự đoán.', 'danger')
+        return redirect(url_for('emr_prediction'))
+
     filepath = os.path.join(app.config['UPLOAD_FOLDER'], secure_filename(file.filename))
     file.save(filepath)
 
     try:
         img = Image.open(filepath).convert('RGB').resize((224, 224))
         arr = np.expand_dims(np.array(img) / 255.0, axis=0)
-        result = float(model.predict(arr)[0][0]) if model else None
+        result = float(model.predict(arr)[0][0])
+        flash('Upload và dự đoán thành công!', 'success')
     except Exception as e:
         print("❌ Lỗi khi dự đoán:", e)
         result = None
+        flash('❌ Lỗi khi dự đoán.', 'danger')
 
     return render_template('emr_prediction.html', image_name=file.filename, result=result)
 
