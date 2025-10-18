@@ -25,11 +25,11 @@
 <body>
 <div class="container">
     <h1>Dự đoán EMR chuyên sâu</h1>
-    <form method="POST" enctype="multipart/form-data">
+    <form method="POST" enctype="multipart/form-data" action="{{ url_for('upload_image') }}">
         <div class="form-group">
-            <input type="file" name="file" accept="image/*" required>
+            <input type="file" name="image" accept="image/*" required>
             <button type="submit" class="btn">Phân tích</button>
-            <a href="{{ url_for('dashboard_page') }}" class="btn-dashboard"> Quay lại Dashboard</a>
+            <a href="{{ url_for('dashboard') }}" class="btn-dashboard"> Quay lại Dashboard</a>
         </div>
     </form>
 
@@ -37,30 +37,26 @@
         <div class="error">{{ error }}</div>
     {% endif %}
 
-    {% if prediction %}
+    {% if result %}
         <div class="result-section">
             <h2>Kết quả dự đoán:</h2>
-            <div style="font-size: 16px;">{{ prediction | safe }}</div>
+            <div style="font-size: 16px;">{{ result | safe }}</div>
 
-            {% if image_path %}
+            {% if image_name %}
                 <div style="text-align:center;">
                     <h3>Ảnh đã tải lên</h3>
-                    <img src="{{ image_path }}" alt="Ảnh đã tải lên">
+                    <img src="{{ url_for('uploaded_file', filename=image_name) }}" alt="Ảnh đã tải lên">
                 </div>
             {% endif %}
         </div>
     {% endif %}
 
-
-      <div class="contact">
-            <p><strong>Liên hệ:</strong><br>
-                Công ty TNHH MTV Minh Trí và những người bạn Marie Curie<br>
-                159 Nam Kỳ Khởi Nghĩa, Quận 3, Tp. Hồ Chí Minh<br>
-                Lại Nguyễn Minh Trí - <a href="mailto:laingminhtri@gmail.com">laingminhtri@gmail.com</a> - 0908083566</p>
-      </div>
+    <div class="contact">
+        <p><strong>Liên hệ:</strong><br>
+            Công ty TNHH MTV Minh Trí và những người bạn Marie Curie<br>
+            159 Nam Kỳ Khởi Nghĩa, Quận 3, Tp. Hồ Chí Minh<br>
+            Lại Nguyễn Minh Trí - <a href="mailto:laingminhtri@gmail.com">laingminhtri@gmail.com</a> - 0908083566</p>
+    </div>
 </div>
 </body>
 </html>
-
-
-
