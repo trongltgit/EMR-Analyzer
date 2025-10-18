@@ -5,8 +5,11 @@ from tensorflow.keras.models import load_model
 from ydata_profiling import ProfileReport 
 from werkzeug.utils import secure_filename
 import tensorflow as tf
-# Sử dụng để phục vụ file từ thư mục uploads (nếu cần)
-from flask import send_from_directory 
+from flask import send_from_directory # Sử dụng để phục vụ file từ thư mục uploads 
+import warnings
+
+# Bỏ qua cảnh báo RuntimeWarning từ Pandas
+warnings.filterwarnings("ignore", category=RuntimeWarning)
 
 app = Flask(__name__)
 # Tăng giới hạn upload file lên 32MB
@@ -60,6 +63,7 @@ def merge_model_parts():
         return False
 
 def try_load_model():
+    """Tải model Keras"""
     global model
     try:
         print(f"🔍 Kiểm tra model ở: {MODEL_PATH}")
@@ -68,10 +72,14 @@ def try_load_model():
             merged = merge_model_parts()
             if not merged:
                 print("⚠️ Model chưa được ghép.")
+        
         if os.path.exists(MODEL_PATH):
             print("🔍 Đang load model...")
+            # Thiết lập biến môi trường để giải quyết vấn đề tương thích TF
             os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0' 
-            model = load_model(MODEL_PATH)
+            # Sử dụng tf.compat.v1.get_default_graph().as_default() để đảm bảo threading hoạt động đúng trong môi trường Flask
+            with tf.compat.v1.get_default_graph().as_default():
+                model = load_model(MODEL_PATH)
             print("✅ Model đã được load.")
         else:
             print("⚠️ Không tìm thấy file model sau khi merge.")
@@ -82,7 +90,7 @@ def try_load_model():
 
 try_load_model()
 
-# Endpoint để phục vụ ảnh đã upload (rất quan trọng cho việc hiển thị ảnh)
+# Endpoint phục vụ ảnh đã upload
 @app.route('/uploads/<filename>')
 def uploaded_file(filename):
     return send_from_directory(UPLOAD_FOLDER, filename)
@@ -98,6 +106,7 @@ def dashboard():
 
 @app.route('/emr_profile.html', methods=['GET', 'POST'])
 def emr_profile():
+    """Phân tích hồ sơ EMR và tạo báo cáo ProfileReport."""
     error = None
     if request.method == 'POST':
         file = request.files.get('file')
@@ -114,19 +123,29 @@ def emr_profile():
 
         try:
             if filename.lower().endswith('.csv'):
+                # Thử đọc CSV, encoding utf-8 là phổ biến nhất
                 df = pd.read_csv(filepath)
             elif filename.lower().endswith(('.xls', '.xlsx')):
                 df = pd.read_excel(filepath)
 
+            # 🚀 SỬA LỖI: Xử lý file rỗng hoặc không cột
+            if df.empty or df.shape[1] == 0:
+                error = "File dữ liệu rỗng, không có cột hoặc dữ liệu hợp lệ. Vui lòng kiểm tra lại file CSV/Excel."
+                return render_template("emr_profile.html", error=error)
+
             try:
-                profile = ProfileReport(df, title="EMR Report", minimal=True)
+                # Tạo báo cáo profile
+                profile = ProfileReport(df, title=f"Báo cáo EMR: {filename}", minimal=True)
                 report_path = os.path.join(STATIC_PROFILE_REPORTS, 'report.html')
                 profile.to_file(report_path)
                 return redirect(url_for('static', filename='profile_reports/report.html'))
-            except MemoryError as me:
-                error = "File quá lớn, không thể sinh báo cáo profile. Vui lòng thử file nhỏ hơn."
+            except MemoryError:
+                error = "File quá lớn, không thể sinh báo cáo profile (Memory Error). Vui lòng thử file nhỏ hơn."
             except Exception as e:
-                error = f"Lỗi khi sinh báo cáo: {e}"
+                error = f"Lỗi khi sinh báo cáo Profile: {e}"
+        
+        except pd.errors.EmptyDataError:
+            error = "Lỗi đọc file: File dữ liệu rỗng hoặc không đúng định dạng CSV/Excel."
         except Exception as e:
             error = f"Lỗi khi đọc file dữ liệu: {e}"
 
@@ -136,9 +155,10 @@ def emr_profile():
 
 @app.route('/emr_prediction.html', methods=['GET', 'POST'])
 def emr_prediction():
+    """Dự đoán hình ảnh EMR bằng model."""
     prediction = None
     error = None
-    image_path = None # Khởi tạo biến này để truyền vào template
+    image_path = None 
 
     if request.method == 'POST':
         file = request.files.get('file')
@@ -154,33 +174,38 @@ def emr_prediction():
 
         global model
         if model is None:
-            try_load_model()
+            # Nếu model là None, thử load lại
+            try_load_model() 
+        
+        # Kiểm tra lại model sau khi load
         if model is None:
             error = (
                 f"Model chưa được tải hoặc không tồn tại trên server ({MODEL_PATH}). "
-                "Hãy kiểm tra lại log server, đảm bảo đã upload đủ các phần .keras.001, .keras.002,... vào thư mục models!"
+                "Hãy kiểm tra lại log server và đảm bảo đã upload đủ các phần model vào thư mục models!"
             )
             return render_template("emr_prediction.html", prediction=prediction, error=error)
 
         filepath = os.path.join(UPLOAD_FOLDER, filename)
         file.save(filepath)
         
-        # 🚀 CẬP NHẬT: Tạo đường dẫn ảnh để hiển thị trên web
         image_path = url_for('uploaded_file', filename=filename) 
 
         try:
+            # Tải ảnh và tiền xử lý
             img = tf.keras.preprocessing.image.load_img(filepath, target_size=(224, 224))
             img_array = tf.keras.preprocessing.image.img_to_array(img)
             img_array = tf.expand_dims(img_array, axis=0) / 255.0
             
+            # Thực hiện dự đoán
             with tf.compat.v1.get_default_graph().as_default():
                 pred = model.predict(img_array)
+                # Giả định đây là model phân loại nhị phân
                 prediction = "Nodule" if pred[0][0] > 0.5 else "Non-Nodule"
         except Exception as e:
-            error = f"Lỗi khi dự đoán: {e}"
+            error = f"Lỗi khi dự đoán: {e}. Vui lòng kiểm tra định dạng và nội dung ảnh."
 
-    # 🚀 CẬP NHẬT: Trả về biến image_path cho template
     return render_template("emr_prediction.html", prediction=prediction, error=error, image_path=image_path)
 
 if __name__ == '__main__':
+    # Chạy ứng dụng Flask
     app.run(debug=False, host='0.0.0.0', port=int(os.environ.get("PORT", 5000)))
