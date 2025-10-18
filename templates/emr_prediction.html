@@ -26,7 +26,7 @@
     h1 { color: #2e7d32; text-align: center; margin-bottom: 20px;} 
     h2 { color: #2e7d32; margin-top: 15px; } 
     .error { color: #d32f2f; margin-top: 15px; font-weight: bold; padding: 10px; background: #ffebee; border-radius: 5px; border: 1px solid #ef9a9a;}
-    .result { margin-top: 20px; font-size: 18px; color: #1b5e20; font-weight: bold; padding: 10px; background: #f1f8e9; border-radius: 5px; border: 1bpx solid #dcedc8; }
+    .result { margin-top: 20px; font-size: 18px; color: #1b5e20; font-weight: bold; padding: 10px; background: #f1f8e9; border-radius: 5px; border: 1px solid #dcedc8; }
     
     /* CSS cho NÚT */
     .btn {
@@ -73,6 +73,8 @@
       font-weight: bold;
     }
     img {
+      max-width: 100%;
+      height: auto;
       border: 5px solid #e0e0e0;
       border-radius: 8px;
     }
@@ -86,7 +88,7 @@
         <div class="form-group">
             <input type="file" name="file" accept="image/*" required style="flex-grow: 1;">
             <button type="submit" class="btn">Phân tích</button>
-            <a href="/dashboard" class="btn-dashboard">Dashboard</a>
+            <a href="{{ url_for('dashboard') }}" class="btn-dashboard">Dashboard</a>
         </div>
     </form>
     
@@ -98,7 +100,7 @@
       {% if image_path %}
         <div style="margin-top:20px; text-align: center;">
           <h3>Ảnh đã tải lên</h3>
-          <img src="{{ image_path }}" alt="Ảnh đã tải lên" style="max-width:100%;">
+          <img src="{{ image_path }}" alt="Ảnh đã tải lên">
         </div>
       {% endif %}
     {% endif %}
