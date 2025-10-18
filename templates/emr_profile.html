@@ -109,19 +109,19 @@
     <div class="container">
         <h1>Phân tích hồ sơ bệnh án EMR</h1>
         
-        <form method="POST" enctype="multipart/form-data">
+        <form method="POST" enctype="multipart/form-data" action="{{ url_for('upload_emr') }}">
             <input type="file" name="file" accept=".csv, .xlsx, .xls" required>
             <button type="submit">Phân tích</button>
-            <a href="{{ url_for('dashboard_page') }}" class="btn-dashboard">Quay lại Dashboard</a>
+            <a href="{{ url_for('dashboard') }}" class="btn-dashboard">Quay lại Dashboard</a>
         </form>
 
         {% if error %}
             <div class="message error">Lỗi: {{ error }}</div>
         {% endif %}
 
-        {% if report_url %}
+        {% if summary %}
             <div class="report-section">
-                {{ report_url | safe }}
+                {{ summary | safe }}
             </div>
         {% endif %}
         
