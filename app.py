@@ -1,10 +1,14 @@
 from flask import Flask, render_template, request, redirect, url_for, session, send_from_directory, flash
 import os
+import io
 import secrets
 import shutil
+import pandas as pd
 import numpy as np
 from keras.models import load_model
 from PIL import Image
+from werkzeug.utils import secure_filename
+from flask import send_from_directory 
 
 # =============================
 # Cấu hình Flask
@@ -16,6 +20,33 @@ os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
 MODEL_FOLDER = 'models'
 MERGED_MODEL_PATH = os.path.join(MODEL_FOLDER, 'best_weights_model_merged.keras')
+
+UPLOAD_FOLDER = 'uploads'
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+app.config['ALLOWED_EXTENSIONS'] = {'csv', 'xlsx', 'xls', 'jpg', 'jpeg', 'png'}
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024 # 16MB
+
+# Đảm bảo thư mục uploads tồn tại và dọn dẹp nó
+if os.path.exists(UPLOAD_FOLDER):
+    # Dọn dẹp thư mục nếu nó đã tồn tại
+    for filename in os.listdir(UPLOAD_FOLDER):
+        file_path = os.path.join(UPLOAD_FOLDER, filename)
+        try:
+            if os.path.isfile(file_path) or os.path.islink(file_path):
+                os.unlink(file_path)
+            elif os.path.isdir(file_path):
+                shutil.rmtree(file_path)
+        except Exception as e:
+            app.logger.error(f'Lỗi khi xóa {file_path}. Lý do: {e}')
+else:
+    os.makedirs(UPLOAD_FOLDER)
+
+# --- Hàm tiện ích (Không thay đổi logic) ---
+
+def allowed_file(filename):
+    """Kiểm tra phần mở rộng của file có được phép không."""
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in app.config['ALLOWED_EXTENSIONS']
 
 # =============================
 # Ghép các file model .keras.001–.004
@@ -208,3 +239,4 @@ def logout():
 # =============================
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
+
