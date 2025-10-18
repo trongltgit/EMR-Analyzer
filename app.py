@@ -1,228 +1,228 @@
+# -*- coding: utf-8 -*-
 import os
-from flask import Flask, render_template, request, redirect, url_for, send_from_directory
+import io
 import pandas as pd
-from ydata_profiling import ProfileReport 
+from flask import Flask, render_template, request, redirect, url_for
 from werkzeug.utils import secure_filename
 import tensorflow as tf
 from tensorflow.keras.models import load_model
-import warnings
+from tensorflow.keras.preprocessing import image
+import numpy as np
 
-# Bỏ qua cảnh báo RuntimeWarning từ Pandas
-warnings.filterwarnings("ignore", category=RuntimeWarning)
-
+# Cấu hình Flask
 app = Flask(__name__)
-# Tăng giới hạn upload file lên 32MB
-app.config['MAX_CONTENT_LENGTH'] = 32 * 1024 * 1024
+app.config['UPLOAD_FOLDER'] = 'uploads/'
+app.config['ALLOWED_EXTENSIONS'] = {'csv', 'xls', 'xlsx', 'png', 'jpg', 'jpeg'}
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-UPLOAD_FOLDER = os.path.join(BASE_DIR, 'uploads')
-STATIC_PROFILE_REPORTS = os.path.join(BASE_DIR, 'static', 'profile_reports')
-MODELS_DIR = os.path.join(BASE_DIR, 'models')
-MODEL_FILENAME = 'best_weights_model.keras'
-MODEL_PATH = os.path.join(MODELS_DIR, MODEL_FILENAME)
+# Đảm bảo thư mục upload tồn tại
+if not os.path.exists(app.config['UPLOAD_FOLDER']):
+    os.makedirs(app.config['UPLOAD_FOLDER'])
 
-# Thiết lập biến môi trường để giải quyết vấn đề tương thích TF
-os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0' 
+# Đường dẫn và Tên model
+MODEL_BASE_PATH = 'models/best_weights_model.keras'
+MODEL_PARTS_PATTERN = MODEL_BASE_PATH + '.%03d' # .001, .002, ...
+GLOBAL_MODEL = None
+GRAPH = None # Khởi tạo Graph cho TensorFlow để đảm bảo thread-safe
 
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-os.makedirs(STATIC_PROFILE_REPORTS, exist_ok=True)
-os.makedirs(MODELS_DIR, exist_ok=True)
+# --- Hàm hỗ trợ ---
 
-# Khởi tạo model thành None
-model = None
-# Khởi tạo graph cho Tensorflow để đảm bảo tính thread-safe trong Flask
-# Đây là giải pháp quan trọng nhất cho vấn đề load model trong môi trường Flask
-graph = tf.compat.v1.get_default_graph()
-
-# Định nghĩa các đuôi file
-ALLOWED_PREDICTION_EXTENSIONS = {'png', 'jpg', 'jpeg'}
-ALLOWED_PROFILE_EXTENSIONS = {'csv', 'xls', 'xlsx'}
-
-def allowed_file(filename, allowed_extensions):
+def allowed_file(filename):
     return '.' in filename and \
-           filename.rsplit('.', 1)[1].lower() in allowed_extensions
+           filename.rsplit('.', 1)[1].lower() in app.config['ALLOWED_EXTENSIONS']
 
 def merge_model_parts():
-    """Ghép các phần .keras.001, .keras.002,... thành file .keras"""
-    part_files = sorted([
-        f for f in os.listdir(MODELS_DIR)
-        if f.startswith(MODEL_FILENAME + ".")
-    ])
-    if not part_files:
-        print("⚠️ Không thấy các phần model.")
-        return False
-    
-    # Kiểm tra xem file đã được merge tồn tại chưa và kích thước có hợp lý không
-    if os.path.exists(MODEL_PATH) and os.path.getsize(MODEL_PATH) > 1024:
-        print("✅ File model đã tồn tại và có kích thước hợp lý, bỏ qua bước merge.")
-        return True
-
-    print(f"🔧 Đang ghép model từ các phần: {part_files}")
-    try:
-        with open(MODEL_PATH, 'wb') as outfile:
-            for part in part_files:
-                part_filepath = os.path.join(MODELS_DIR, part)
-                with open(part_filepath, 'rb') as pf:
-                    while True:
-                        chunk = pf.read(1024 * 1024)
-                        if not chunk:
-                            break
-                        outfile.write(chunk)
-        print(f"✅ Ghép model thành công! Đã tạo {MODEL_PATH} ({os.path.getsize(MODEL_PATH)} bytes)")
-        return True
-    except Exception as e:
-        print(f"❌ Lỗi khi ghép model: {e}")
-        return False
-
-def try_load_model():
-    """Tải model Keras"""
-    global model, graph
-    try:
-        if not os.path.exists(MODEL_PATH):
-            merge_model_parts()
+    """Ghép các phần của model (nếu tồn tại) thành một file duy nhất."""
+    merged_path = MODEL_BASE_PATH
+    if os.path.exists(merged_path):
+        return True # File đã tồn tại, không cần ghép
         
-        if os.path.exists(MODEL_PATH):
-            print("🔍 Đang load model...")
-            # Sử dụng global graph để đảm bảo tính thread-safe trong Flask/Gunicorn
-            with graph.as_default():
-                model = load_model(MODEL_PATH)
-            print("✅ Model đã được load thành công.")
-        else:
-            print("⚠️ Không tìm thấy file model sau khi merge/kiểm tra.")
-            model = None
+    part_paths = []
+    i = 1
+    while True:
+        part_path = MODEL_PARTS_PATTERN % i
+        if not os.path.exists(part_path):
+            break
+        part_paths.append(part_path)
+        i += 1
+    
+    if len(part_paths) < 1:
+        # Không tìm thấy bất kỳ phần nào của model
+        return False
+        
+    try:
+        with open(merged_path, 'wb') as outfile:
+            for part_file in part_paths:
+                with open(part_file, 'rb') as infile:
+                    outfile.write(infile.read())
+        return True
     except Exception as e:
-        print(f"❌ Lỗi khi load model: {e}")
-        model = None
+        print(f"Lỗi khi ghép các phần model: {e}")
+        # Xóa file đã ghép nếu quá trình ghép lỗi
+        if os.path.exists(merged_path):
+            os.remove(merged_path)
+        return False
 
-# Tải model khi ứng dụng khởi động
-try_load_model()
+def load_ai_model():
+    """Tải model AI vào bộ nhớ."""
+    global GLOBAL_MODEL, GRAPH
+    if GLOBAL_MODEL:
+        print("Model đã được tải sẵn.")
+        return True
+    
+    if not merge_model_parts():
+        print("LỖI: Không tìm thấy các phần model để ghép hoặc file model gốc.")
+        return False
 
-# Endpoint phục vụ ảnh đã upload
-@app.route('/uploads/<filename>')
-def uploaded_file(filename):
-    return send_from_directory(UPLOAD_FOLDER, filename)
+    try:
+        # Sử dụng tf.compat.v1.get_default_graph() để xử lý vấn đề thread-safe trong Flask
+        # đối với các phiên bản TensorFlow cũ
+        GRAPH = tf.compat.v1.get_default_graph() 
+        with GRAPH.as_default():
+            GLOBAL_MODEL = load_model(MODEL_BASE_PATH)
+            print("Model AI đã tải thành công.")
+            return True
+    except Exception as e:
+        print(f"LỖI TẢI MODEL: {e}")
+        return False
 
-# Trang chủ mặc định (index.html)
-@app.route('/')
-def home():
-    # Giả định có file index.html để chuyển hướng hoặc hiển thị màn hình chào mừng
-    return redirect(url_for('dashboard'))
+# Gọi hàm tải model khi ứng dụng khởi động lần đầu
+with app.app_context():
+    load_ai_model()
+
+# --- Định tuyến (Routes) ---
+
+@app.route('/', methods=['GET', 'POST'])
+def index():
+    """Trang Đăng nhập (hoặc Trang Chủ)"""
+    if request.method == 'POST':
+        # Logic đăng nhập đơn giản: chỉ cần POST là chuyển hướng
+        return redirect(url_for('dashboard'))
+    return render_template('index.html')
 
 @app.route('/dashboard')
 def dashboard():
+    """Dashboard chính"""
     return render_template('dashboard.html')
 
-@app.route('/emr_profile.html', methods=['GET', 'POST'])
+@app.route('/emr_profile', methods=['GET', 'POST'])
 def emr_profile():
-    """Phân tích hồ sơ EMR và tạo báo cáo ProfileReport."""
+    """Phân tích hồ sơ EMR (Data Analysis)"""
     error = None
+    report_url = None
+    
     if request.method == 'POST':
-        file = request.files.get('file')
-        if not file or file.filename == '':
-            error = "Vui lòng chọn file."
-            return render_template("emr_profile.html", error=error)
-            
-        filename = secure_filename(file.filename)
+        if 'file' not in request.files:
+            error = "Vui lòng chọn file dữ liệu."
+            return render_template('emr_profile.html', error=error)
         
-        if not allowed_file(filename, ALLOWED_PROFILE_EXTENSIONS):
-            error = "File không hợp lệ (chỉ nhận .csv, .xls, .xlsx)."
-            return render_template("emr_profile.html", error=error)
+        file = request.files['file']
+        
+        if file.filename == '':
+            error = "Vui lòng chọn file dữ liệu."
+            return render_template('emr_profile.html', error=error)
             
-        filepath = os.path.join(UPLOAD_FOLDER, filename)
-        file.save(filepath)
-
-        try:
-            # Đọc file dữ liệu
-            if filename.lower().endswith('.csv'):
-                df = pd.read_csv(filepath)
-            elif filename.lower().endswith(('.xls', '.xlsx')):
-                # Mặc định đọc sheet đầu tiên
-                df = pd.read_excel(filepath)
-
-            # 🚀 SỬA LỖI: Kiểm tra dữ liệu rỗng/không cột sau khi đọc
-            if df.empty or df.shape[1] == 0:
-                error = "File dữ liệu rỗng, không có cột hoặc dữ liệu hợp lệ. Vui lòng kiểm tra lại file CSV/Excel."
-                return render_template("emr_profile.html", error=error)
-
+        if file and allowed_file(file.filename):
             try:
-                # Tạo báo cáo profile
-                # minimal=True giúp giảm tải tính toán cho các file lớn (để tránh MemoryError)
-                profile = ProfileReport(df, title=f"Báo cáo EMR: {filename}", minimal=True)
-                report_path = os.path.join(STATIC_PROFILE_REPORTS, 'report.html')
-                profile.to_file(report_path)
-                return redirect(url_for('static', filename='profile_reports/report.html'))
-            except MemoryError:
-                error = "File quá lớn, không thể sinh báo cáo profile (Memory Error). Vui lòng thử file nhỏ hơn."
+                # Đọc file vào bộ nhớ
+                file_content = file.read()
+                if not file_content:
+                    error = "File dữ liệu rỗng. Vui lòng kiểm tra lại file CSV/Excel."
+                    return render_template('emr_profile.html', error=error)
+                    
+                # Sử dụng io.BytesIO để đọc nội dung file từ bộ nhớ
+                file_stream = io.BytesIO(file_content)
+                
+                filename = secure_filename(file.filename)
+                
+                # Xác định loại file (CSV hay Excel)
+                if filename.lower().endswith('.csv'):
+                    df = pd.read_csv(file_stream)
+                else: # Excel (xls, xlsx)
+                    df = pd.read_excel(file_stream)
+                    
+                # KIỂM TRA DỮ LIỆU
+                if df.empty or df.shape[1] == 0:
+                     error = "Lỗi đọc file: File dữ liệu rỗng hoặc không có cột để phân tích."
+                     return render_template('emr_profile.html', error=error)
+                     
+                # Thực hiện phân tích: Ví dụ đơn giản là hiển thị 5 dòng đầu và thống kê
+                analysis_result = "Phân tích thành công:<br>"
+                analysis_result += "<h3>5 dòng dữ liệu đầu tiên:</h3>"
+                analysis_result += df.head().to_html(classes='table table-striped')
+                analysis_result += "<h3>Thống kê tổng quan:</h3>"
+                analysis_result += df.describe().to_html(classes='table table-striped')
+                
+                report_url = analysis_result # Dùng report_url để truyền HTML đã phân tích
+                
+            except pd.errors.EmptyDataError:
+                error = "Lỗi đọc file: File dữ liệu rỗng hoặc không đúng định dạng CSV/Excel."
             except Exception as e:
-                error = f"Lỗi khi sinh báo cáo Profile: {e}"
-        
-        except pd.errors.EmptyDataError:
-            error = "Lỗi đọc file: File dữ liệu rỗng hoặc không đúng định dạng CSV/Excel."
-        except Exception as e:
-            error = f"Lỗi khi đọc file dữ liệu: {e}"
+                error = f"Lỗi khi đọc file dữ liệu: {e}"
+                
+    return render_template('emr_profile.html', error=error, report_url=report_url)
 
-        return render_template("emr_profile.html", error=error)
-
-    return render_template("emr_profile.html", error=error)
-
-@app.route('/emr_prediction.html', methods=['GET', 'POST'])
+@app.route('/emr_prediction', methods=['GET', 'POST'])
 def emr_prediction():
-    """Dự đoán hình ảnh EMR bằng model."""
-    prediction = None
+    """Phân tích EMR Chuyên sâu (Image Prediction)"""
     error = None
-    image_path = None 
+    prediction = None
+    image_path = None
+    
+    if not GLOBAL_MODEL:
+        error = "Model chưa được tải hoặc không tồn tại trên server. Hãy kiểm tra lại log server và đảm bảo đã upload đủ các phần file model vào thư mục models!"
+        return render_template('emr_prediction.html', error=error)
 
     if request.method == 'POST':
-        file = request.files.get('file')
-        if not file or file.filename == '':
-            error = "Vui lòng chọn ảnh."
-            return render_template("emr_prediction.html", prediction=prediction, error=error)
+        if 'file' not in request.files:
+            error = "Vui lòng chọn file ảnh."
+            return render_template('emr_prediction.html', error=error)
+        
+        file = request.files['file']
+        
+        if file.filename == '':
+            error = "Vui lòng chọn file ảnh."
+            return render_template('emr_prediction.html', error=error)
             
-        filename = secure_filename(file.filename)
-
-        if not allowed_file(filename, ALLOWED_PREDICTION_EXTENSIONS):
-            error = "File không hợp lệ. Vui lòng chọn ảnh định dạng PNG, JPG, hoặc JPEG."
-            return render_template("emr_prediction.html", prediction=prediction, error=error)
-
-        global model, graph
-        
-        if model is None:
-            # Nếu model là None, thử load lại
-            try_load_model() 
-        
-        # Kiểm tra lại model sau khi load
-        if model is None:
-            error = (
-                f"Model chưa được tải hoặc không tồn tại trên server. "
-                "Vui lòng kiểm tra lại thư mục models và đảm bảo đã upload đủ 4 phần file model."
-            )
-            return render_template("emr_prediction.html", prediction=prediction, error=error)
-
-        filepath = os.path.join(UPLOAD_FOLDER, filename)
-        file.save(filepath)
-        
-        # Lấy đường dẫn URL của ảnh đã upload để hiển thị
-        image_path = url_for('uploaded_file', filename=filename) 
-
-        try:
-            # Tải ảnh và tiền xử lý
-            img = tf.keras.preprocessing.image.load_img(filepath, target_size=(224, 224))
-            img_array = tf.keras.preprocessing.image.img_to_array(img)
-            img_array = tf.expand_dims(img_array, axis=0) / 255.0
+        if file and allowed_file(file.filename):
+            filename = secure_filename(file.filename)
+            upload_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
             
-            # Thực hiện dự đoán, sử dụng graph để đảm bảo thread-safe
-            with graph.as_default():
-                pred = model.predict(img_array)
-                # Giả định đây là model phân loại nhị phân
-                prediction_value = pred[0][0]
-                # Format kết quả dự đoán
-                prediction_label = 'Nodule' if prediction_value > 0.5 else 'Non-Nodule'
-                prediction = f"Kết quả: {prediction_label} (Độ tin cậy: {prediction_value:.2f})"
-        except Exception as e:
-            error = f"Lỗi khi dự đoán: {e}. Vui lòng kiểm tra định dạng và nội dung ảnh."
+            try:
+                file.save(upload_path)
+                image_path = url_for('uploaded_file', filename=filename)
 
-    return render_template("emr_prediction.html", prediction=prediction, error=error, image_path=image_path)
+                # PHÂN TÍCH ẢNH DÙNG MODEL
+                img = image.load_img(upload_path, target_size=(224, 224)) # Kích thước target tùy thuộc model
+                img_array = image.img_to_array(img)
+                img_array = np.expand_dims(img_array, axis=0)
+                img_array /= 255.0 # Chuẩn hóa
+                
+                # Thực hiện dự đoán
+                with GRAPH.as_default(): # Dùng graph đã định nghĩa
+                    predictions = GLOBAL_MODEL.predict(img_array)
+
+                # Xử lý kết quả dự đoán (Ví dụ cho phân loại nhị phân)
+                if predictions[0] > 0.5:
+                    prediction = f"Kết quả dự đoán: Nodule (U/Nốt sần) với độ tin cậy {predictions[0][0]*100:.2f}%"
+                else:
+                    prediction = f"Kết quả dự đoán: Non-Nodule (Không phải U/Nốt sần) với độ tin cậy {(1-predictions[0][0])*100:.2f}%"
+                
+            except Exception as e:
+                error = f"Lỗi trong quá trình xử lý hoặc dự đoán: {e}"
+        else:
+            error = "Định dạng file không được hỗ trợ. Vui lòng chọn ảnh (jpg, png)."
+                
+    return render_template('emr_prediction.html', error=error, prediction=prediction, image_path=image_path)
+
+@app.route('/uploads/<filename>')
+def uploaded_file(filename):
+    """Phục vụ file đã upload"""
+    return redirect(url_for('static', filename='uploads/' + filename))
 
 if __name__ == '__main__':
-    # Chạy ứng dụng Flask
-    app.run(debug=False, host='0.0.0.0', port=int(os.environ.get("PORT", 5000)))
+    # Đảm bảo thư mục static/uploads tồn tại nếu chạy cục bộ
+    static_upload_dir = os.path.join('static', app.config['UPLOAD_FOLDER'])
+    if not os.path.exists(static_upload_dir):
+        os.makedirs(static_upload_dir)
+        
+    app.run(debug=True)
