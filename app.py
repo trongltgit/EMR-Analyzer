@@ -3,10 +3,11 @@ import io
 import pandas as pd
 from flask import Flask, render_template, request, redirect, url_for, session
 from werkzeug.utils import secure_filename
-from flask import send_from_directory # Cần thiết cho việc phục vụ file uploads
+from flask import send_from_directory 
 
 # --- Cấu hình ứng dụng ---
 app = Flask(__name__)
+# Thiết lập secret key cho session
 app.secret_key = 'super_secret_key_for_emr_app' 
 
 UPLOAD_FOLDER = 'uploads'
@@ -67,8 +68,13 @@ def predict_emr_image(image_path):
 # --- Routes của ứng dụng ---
 
 @app.route('/', methods=['GET'])
-def dashboard():
-    """Trang Dashboard chính."""
+def index():
+    """Route gốc: Trang Chào mừng/Đăng nhập (index.html)."""
+    return render_template('index.html')
+
+@app.route('/dashboard', methods=['GET'])
+def dashboard_page():
+    """Trang Dashboard chính. URL: /dashboard"""
     error = session.pop('error', None)
     return render_template('dashboard.html', error=error)
 
@@ -94,7 +100,6 @@ def emr_profile():
             filename = secure_filename(file.filename)
             file_extension = filename.rsplit('.', 1)[1].lower()
 
-            # Đảm bảo xử lý file được tải lên thành công
             if file_extension == 'csv':
                 try:
                     df = pd.read_csv(io.StringIO(file_content.decode('utf-8')))
@@ -137,10 +142,8 @@ def emr_prediction():
             filename = secure_filename(file.filename)
             filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
             
-            # Lưu file vào thư mục UPLOAD_FOLDER
             file.save(filepath)
             
-            # Đường dẫn ảnh để hiển thị trong HTML (Sử dụng tên hàm route)
             image_path = url_for('uploaded_file', filename=filename)
             
             prediction = predict_emr_image(filepath)
@@ -155,7 +158,6 @@ def emr_prediction():
 @app.route('/uploads/<filename>')
 def uploaded_file(filename):
     """Route để phục vụ các file đã upload (hình ảnh)."""
-    # Sử dụng send_from_directory để Flask biết cách phục vụ file tĩnh
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
 
