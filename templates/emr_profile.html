@@ -16,7 +16,7 @@
       align-items: center; 
     }
     .container { 
-      max-width: 700px; 
+      max-width: 900px; /* Tăng max-width để hiển thị bảng */
       width: 90%; 
       background: white; 
       padding: 30px; 
@@ -71,6 +71,36 @@
       text-decoration: none;
       font-weight: bold;
     }
+    
+    /* CSS cho Kết quả Phân tích (Bảng) */
+    .report-container {
+      margin-top: 30px;
+      padding: 20px;
+      background-color: #f1f8e9; /* Nền xanh nhạt cho báo cáo */
+      border: 1px solid #dcedc8;
+      border-radius: 8px;
+      overflow-x: auto; /* Cuộn ngang nếu bảng quá rộng */
+    }
+    .report-container h3 {
+      color: #2e7d32;
+      border-bottom: 2px solid #a5d6a7;
+      padding-bottom: 5px;
+      margin-top: 20px;
+    }
+    .report-container table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+    }
+    .report-container th, .report-container td {
+      border: 1px solid #c8e6c9;
+      padding: 8px;
+      text-align: left;
+    }
+    .report-container th {
+      background-color: #dcedc8;
+      color: #1b5e20;
+    }
   </style>
 </head>
 <body>
@@ -81,12 +111,18 @@
         <div class="form-group">
             <input type="file" name="file" accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel" required style="flex-grow: 1;">
             <button type="submit" class="btn">Phân tích</button>
-            <a href="/dashboard" class="btn-dashboard">Dashboard</a>
+            <a href="{{ url_for('dashboard') }}" class="btn-dashboard">Dashboard</a>
         </div>
     </form>
     
     {% if error %}
       <div class="error">Lỗi: {{ error|safe }}</div>
+    {% endif %}
+    
+    {% if report_url %}
+      <div class="report-container">
+        {{ report_url|safe }}
+      </div>
     {% endif %}
     
     <div class="contact">
