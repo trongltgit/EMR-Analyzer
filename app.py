@@ -34,11 +34,9 @@ def merge_model_files():
         os.path.join(MODEL_FOLDER, f"best_weights_model.keras.{i:03d}")
         for i in range(1, 5)
     ]
-
     if not all(os.path.exists(p) for p in parts):
         print("⚠️ Không tìm thấy đầy đủ model parts (.001–.004)")
         return None
-
     if os.path.exists(MERGED_MODEL_PATH):
         return MERGED_MODEL_PATH
 
@@ -77,7 +75,6 @@ def login():
     username = request.form.get('userID')
     password = request.form.get('password')
 
-    # Thông tin demo
     if username == 'user_demo' and password == 'Test@123456':
         session['logged_in'] = True
         session['username'] = username
