@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <title>Phân tích hồ sơ EMR</title>
     <style>
-        /* CSS ĐỒNG BỘ - TÔNG XANH LÁ, CĂN GIỮA */
         body { 
             font-family: Arial, sans-serif; 
             background: #e8f5e9; 
@@ -14,7 +13,7 @@
         }
         .container { 
             max-width: 700px; 
-            margin: 50px auto; /* CĂN GIỮA */
+            margin: 50px auto; 
             background: #fff; 
             padding: 30px; 
             border-radius: 10px; 
@@ -39,7 +38,8 @@
             border-radius: 5px;
             margin-right: 10px;
         }
-        button[type="submit"] {
+        button[type="submit"],
+        .btn-dashboard {
             background-color: #4caf50;
             color: white;
             padding: 10px 20px;
@@ -48,10 +48,14 @@
             cursor: pointer;
             font-size: 16px;
             transition: background-color 0.3s;
+            text-decoration: none;
+            display: inline-block;
         }
-        button[type="submit"]:hover {
+        button[type="submit"]:hover,
+        .btn-dashboard:hover {
             background-color: #2e7d32;
         }
+
         .message {
             padding: 15px;
             border-radius: 8px;
@@ -90,19 +94,6 @@
             background-color: #a5d6a7;
             color: #333;
         }
-        .btn-back {
-            background-color: #81c784; 
-            color: #333;
-            padding: 10px 20px;
-            border-radius: 5px;
-            text-decoration: none;
-            display: inline-block;
-            margin-top: 20px;
-            float: right; /* Căn phải */
-        }
-        .btn-back:hover {
-            background-color: #a5d6a7;
-        }
         .contact { 
             clear: both;
             margin-top: 40px; 
@@ -121,7 +112,7 @@
         <form method="POST" enctype="multipart/form-data">
             <input type="file" name="file" accept=".csv, .xlsx, .xls" required>
             <button type="submit">Phân tích</button>
-            <a href="{{ url_for('dashboard_page') }}" class="btn-dashboard"> Quay lại Dashboard</a>
+            <a href="{{ url_for('dashboard_page') }}" class="btn-dashboard">Quay lại Dashboard</a>
         </form>
 
         {% if error %}
@@ -130,13 +121,10 @@
 
         {% if report_url %}
             <div class="report-section">
-                <!-- Nội dung HTML của báo cáo được chèn ở đây (đã được đánh dấu là 'safe' trong app.py) -->
                 {{ report_url | safe }}
             </div>
         {% endif %}
         
-       
-
         <div class="contact">
             <p><strong>Liên hệ:</strong><br>
                 Công ty TNHH MTV Minh Trí và những người bạn Marie Curie<br>
@@ -146,4 +134,3 @@
     </div>
 </body>
 </html>
-
