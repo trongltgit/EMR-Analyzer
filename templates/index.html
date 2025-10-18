@@ -55,41 +55,34 @@
     <p>Số hóa hồ sơ bệnh án là xu hướng tất yếu trong hiện đại hóa y tế. Hệ thống sử dụng LSTM - một mô hình trí tuệ nhân tạo tiên tiến để hỗ trợ bác sĩ phân tích bệnh án, xét nghiệm, hình ảnh y khoa và dự đoán bệnh tiềm ẩn.</p>
 
     <h2>Đăng nhập hệ thống</h2>
-    <form id="loginForm" method="POST" action="{{ url_for('login') }}">
-      <label for="userID" placeholder="Tên đăng nhập">ID người dùng:</label>
-      <input type="text" id="userID" required>
+    <form method="POST" action="{{ url_for('login') }}">
+      <label for="userID">ID người dùng:</label>
+      <input type="text" id="userID" name="userID" required>
 
-      <label for="password" placeholder="Mật khẩu">Mật khẩu:</label>
-      <input type="password" id="password" required>
+      <label for="password">Mật khẩu:</label>
+      <input type="password" id="password" name="password" required>
 
       <button type="submit">Đăng nhập</button>
     </form>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <ul>
+          {% for category, message in messages %}
+            <li style="color:{% if category=='danger' %}red{% elif category=='success' %}green{% else %}black{% endif %};">
+              {{ message }}
+            </li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+    {% endwith %}
 
     <div class="contact">
       <p><strong>Liên hệ:</strong><br>
       Công ty TNHH MTV Minh Trí và những người bạn Marie Curie<br>
       159 Nam Kỳ Khởi Nghĩa, Quận 3, Tp. Hồ Chí Minh<br>
-      Lại Nguyễn Minh Trí - <a href="mailto:laingminhtri@gmail.com">laingminhtri@gmail.com</a> - 0908083566</p>
+      Lại Nguyễn Minh Trí - <a href="mailto:laingminhtri@gmail.com">laingminhtri@gmail.com</a></p>
     </div>
   </div>
-
-  <script>
-    const validUser = 'user_demo';
-    const validPass = 'Test@123456';
-
-    document.getElementById('loginForm').addEventListener('submit', function(e) {
-      e.preventDefault();
-      const userID = document.getElementById('userID').value.trim();
-      const password = document.getElementById('password').value;
-
-      // Kiểm tra thông tin đăng nhập
-      if (userID === validUser && password === validPass) {
-        // Chuyển hướng đến route Flask `/dashboard`
-      window.location.href = '/dashboard';
-      } else {
-        alert('Sai ID hoặc mật khẩu. Vui lòng thử lại!');
-      }
-    });
-  </script>
 </body>
 </html>
