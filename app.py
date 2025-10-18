@@ -1,154 +1,167 @@
 import os
 import secrets
 import numpy as np
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request, Markup
 from tensorflow.keras.models import load_model
 from tensorflow.keras.preprocessing import image
 from PIL import Image
 
-# =======================================================
-# 🔧 CẤU HÌNH FLASK APP
-# =======================================================
+# ============================================
+# 🚀 CẤU HÌNH ỨNG DỤNG
+# ============================================
 app = Flask(__name__)
-app.secret_key = secrets.token_hex(16)  # 🔐 Sinh tự động mỗi lần chạy
+app.secret_key = secrets.token_hex(16)
 app.config['UPLOAD_FOLDER'] = 'uploads'
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
-# =======================================================
-# 📦 GHÉP FILE MODEL (4 phần nhỏ -> 1 file .keras)
-# =======================================================
 MODEL_DIR = "models"
+os.makedirs(MODEL_DIR, exist_ok=True)
 MERGED_MODEL_PATH = os.path.join(MODEL_DIR, "best_weights_model.keras")
-
 MODEL_PARTS = [
     os.path.join(MODEL_DIR, f"best_weights_model.keras.{i:03d}")
     for i in range(1, 5)
 ]
 
+# ============================================
+# 🧩 GHÉP FILE MODEL
+# ============================================
 def merge_model_parts():
-    """Ghép 4 phần model nếu file chính chưa tồn tại."""
+    """Ghép 4 file .keras.001 -> .004 thành 1 model keras"""
     if os.path.exists(MERGED_MODEL_PATH):
         print("✅ Model đã tồn tại:", MERGED_MODEL_PATH)
         return True
 
-    print("🔄 Đang ghép các phần model...")
+    print("🔄 Đang ghép model từ các phần...")
     try:
-        with open(MERGED_MODEL_PATH, "wb") as outfile:
+        with open(MERGED_MODEL_PATH, "wb") as merged:
             for part in MODEL_PARTS:
-                if os.path.exists(part):
-                    print("🧩 Thêm:", os.path.basename(part))
-                    with open(part, "rb") as infile:
-                        outfile.write(infile.read())
-                else:
-                    print(f"⚠️ Thiếu file: {part}")
+                if not os.path.exists(part):
+                    print(f"⚠️ Thiếu {part}")
                     return False
-        print("✅ Ghép model thành công!")
+                print("🧩 Nối:", os.path.basename(part))
+                with open(part, "rb") as f:
+                    merged.write(f.read())
+        print("✅ Đã ghép thành công model.")
         return True
     except Exception as e:
         print("❌ Lỗi khi ghép model:", e)
         return False
 
 
-# =======================================================
-# 🧠 LOAD MODEL KERAS
-# =======================================================
+# ============================================
+# 🧠 LOAD MODEL
+# ============================================
 model = None
 if merge_model_parts():
     try:
         model = load_model(MERGED_MODEL_PATH)
         print("✅ Model đã được load thành công.")
     except Exception as e:
-        print("❌ Không thể load model:", e)
+        print("⚠️ Lỗi load model:", e)
 else:
-    print("⚠️ Model chưa sẵn sàng (thiếu file hoặc lỗi ghép).")
+    print("⚠️ Model chưa sẵn sàng (thiếu file .keras.*)")
 
-
-# =======================================================
-# 🏠 TRANG CHỦ / DASHBOARD
-# =======================================================
+# ============================================
+# 🏠 TRANG CHỦ (index.html)
+# ============================================
 @app.route('/')
-def dashboard_page():
-    # Nếu bạn chưa có dashboard.html, có thể tạo đơn giản:
-    # <h1>Dashboard</h1> <a href="/predict">Dự đoán</a> <a href="/profile">Hồ sơ</a>
-    return render_template('dashboard.html')
+def index_page():
+    try:
+        return render_template('index.html')
+    except:
+        # Fallback nếu chưa có file HTML
+        return """
+        <h1 style='color:#2e7d32;text-align:center;'>EMR Dashboard</h1>
+        <p style='text-align:center;'>
+            <a href='/predict'>🔍 Dự đoán từ ảnh</a> |
+            <a href='/profile'>📊 Phân tích hồ sơ</a>
+        </p>
+        """
 
-
-# =======================================================
-# 🩺 TRANG DỰ ĐOÁN EMR (ẢNH)
-# =======================================================
+# ============================================
+# 🩺 DỰ ĐOÁN TỪ HÌNH ẢNH
+# ============================================
 @app.route('/predict', methods=['GET', 'POST'])
 def predict_page():
-    error = None
-    prediction = None
-    image_path = None
+    error, prediction, image_path = None, None, None
 
     if request.method == 'POST':
         file = request.files.get('file')
 
         if not file:
-            error = "Vui lòng chọn một file ảnh hợp lệ."
+            error = "Vui lòng chọn một ảnh."
         elif model is None:
             error = "⚠️ Model chưa sẵn sàng để dự đoán."
         else:
             try:
-                # Lưu file upload
                 filename = file.filename
-                save_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-                file.save(save_path)
+                filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+                file.save(filepath)
 
-                # Xử lý ảnh đầu vào
-                img = Image.open(save_path).convert('RGB')
-                img = img.resize((224, 224))
-                img_array = image.img_to_array(img)
-                img_array = np.expand_dims(img_array, axis=0) / 255.0
+                img = Image.open(filepath).convert('RGB').resize((224, 224))
+                img_arr = np.expand_dims(image.img_to_array(img), axis=0) / 255.0
+                preds = model.predict(img_arr)
+                pred_class = int(np.argmax(preds))
+                confidence = float(np.max(preds))
 
-                # Dự đoán
-                preds = model.predict(img_array)
-                predicted_class = np.argmax(preds, axis=1)[0]
-                confidence = np.max(preds)
-
-                prediction = f"Kết quả dự đoán: <b>Nhóm {predicted_class}</b> (Độ tin cậy: {confidence:.2%})"
-                image_path = f"/{save_path.replace(os.sep, '/')}"
-
+                prediction = Markup(f"Kết quả: <b>Nhóm {pred_class}</b> - Độ tin cậy: {confidence:.2%}")
+                image_path = f"/{filepath.replace(os.sep, '/')}"
             except Exception as e:
-                error = f"Lỗi khi xử lý ảnh hoặc dự đoán: {str(e)}"
+                error = f"Lỗi khi xử lý ảnh: {str(e)}"
 
-    return render_template(
-        'emr_prediction.html',
-        prediction=prediction,
-        error=error,
-        image_path=image_path
-    )
+    try:
+        return render_template('emr_prediction.html',
+                               error=error,
+                               prediction=prediction,
+                               image_path=image_path)
+    except:
+        # Fallback nếu thiếu HTML
+        return f"""
+        <h1 style='color:#2e7d32;'>Dự đoán EMR</h1>
+        <form method='POST' enctype='multipart/form-data'>
+            <input type='file' name='file'>
+            <button type='submit'>Phân tích</button>
+        </form>
+        <p style='color:red;'>{error or ''}</p>
+        <p>{prediction or ''}</p>
+        {'<img src="'+image_path+'" width="300">' if image_path else ''}
+        """
 
-
-# =======================================================
-# 📊 TRANG PHÂN TÍCH HỒ SƠ EMR (CSV/Excel)
-# =======================================================
+# ============================================
+# 📊 PHÂN TÍCH FILE EMR
+# ============================================
 @app.route('/profile', methods=['GET', 'POST'])
 def profile_page():
-    report_html = None
-    error = None
-
+    report_url, error = None, None
     if request.method == 'POST':
         file = request.files.get('file')
         if not file:
-            error = "Vui lòng chọn file hồ sơ hợp lệ (.csv, .xlsx, .xls)."
+            error = "Vui lòng chọn file CSV hoặc Excel."
         else:
             try:
-                # Giả lập: phân tích file CSV hoặc Excel
-                report_html = f"""
-                <p><b>Đã tải file:</b> {file.filename}</p>
-                <p>Phân tích thành công! (Bản mẫu)</p>
-                """
+                report_url = f"<p><b>Đã tải file:</b> {file.filename}</p><p>Phân tích thành công!</p>"
             except Exception as e:
-                error = f"Lỗi khi phân tích hồ sơ: {str(e)}"
+                error = f"Lỗi khi xử lý file: {e}"
 
-    return render_template('emr_profile.html', report_url=report_html, error=error)
+    try:
+        return render_template('emr_profile.html',
+                               error=error,
+                               report_url=report_url)
+    except:
+        # Fallback nếu chưa có HTML
+        return f"""
+        <h1>Phân tích hồ sơ EMR</h1>
+        <form method='POST' enctype='multipart/form-data'>
+            <input type='file' name='file'>
+            <button type='submit'>Tải lên</button>
+        </form>
+        <p style='color:red;'>{error or ''}</p>
+        <div>{report_url or ''}</div>
+        """
 
-
-# =======================================================
+# ============================================
 # 🚀 CHẠY APP
-# =======================================================
+# ============================================
 if __name__ == '__main__':
-    print("\n🌐 Ứng dụng EMR đang khởi động trên http://127.0.0.1:5000")
+    print("🌿 Flask EMR app đang chạy tại: http://127.0.0.1:5000")
     app.run(host='0.0.0.0', port=5000, debug=True)
