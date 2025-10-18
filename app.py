@@ -2,12 +2,15 @@ import os
 from flask import Flask, render_template, request, redirect, url_for
 import pandas as pd
 from tensorflow.keras.models import load_model
-from ydata_profiling import ProfileReport
+from ydata_profiling import ProfileReport 
 from werkzeug.utils import secure_filename
 import tensorflow as tf
+# Sử dụng để phục vụ file từ thư mục uploads (nếu cần)
+from flask import send_from_directory 
 
 app = Flask(__name__)
-app.config['MAX_CONTENT_LENGTH'] = 32 * 1024 * 1024  # Tăng giới hạn upload file lên 32MB
+# Tăng giới hạn upload file lên 32MB
+app.config['MAX_CONTENT_LENGTH'] = 32 * 1024 * 1024
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 UPLOAD_FOLDER = os.path.join(BASE_DIR, 'uploads')
@@ -21,6 +24,15 @@ os.makedirs(STATIC_PROFILE_REPORTS, exist_ok=True)
 os.makedirs(MODELS_DIR, exist_ok=True)
 
 model = None
+
+# Định nghĩa các đuôi file ảnh được cho phép
+ALLOWED_PREDICTION_EXTENSIONS = {'png', 'jpg', 'jpeg'}
+# Định nghĩa các đuôi file dữ liệu được cho phép (cho EMR Profile)
+ALLOWED_PROFILE_EXTENSIONS = {'csv', 'xls', 'xlsx'}
+
+def allowed_file(filename, allowed_extensions):
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in allowed_extensions
 
 def merge_model_parts():
     """Ghép các phần .keras.001, .keras.002,... thành file .keras"""
@@ -58,6 +70,7 @@ def try_load_model():
                 print("⚠️ Model chưa được ghép.")
         if os.path.exists(MODEL_PATH):
             print("🔍 Đang load model...")
+            os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0' 
             model = load_model(MODEL_PATH)
             print("✅ Model đã được load.")
         else:
@@ -68,6 +81,12 @@ def try_load_model():
         model = None
 
 try_load_model()
+
+# Endpoint để phục vụ ảnh đã upload (rất quan trọng cho việc hiển thị ảnh)
+@app.route('/uploads/<filename>')
+def uploaded_file(filename):
+    return send_from_directory(UPLOAD_FOLDER, filename)
+
 
 @app.route('/')
 def home():
@@ -82,10 +101,14 @@ def emr_profile():
     error = None
     if request.method == 'POST':
         file = request.files.get('file')
-        if not file:
+        if not file or file.filename == '':
             return render_template("emr_profile.html", error="Vui lòng chọn file.")
 
         filename = secure_filename(file.filename)
+        
+        if not allowed_file(filename, ALLOWED_PROFILE_EXTENSIONS):
+            return render_template("emr_profile.html", error="File không hợp lệ (chỉ nhận .csv, .xls, .xlsx).")
+            
         filepath = os.path.join(UPLOAD_FOLDER, filename)
         file.save(filepath)
 
@@ -94,10 +117,7 @@ def emr_profile():
                 df = pd.read_csv(filepath)
             elif filename.lower().endswith(('.xls', '.xlsx')):
                 df = pd.read_excel(filepath)
-            else:
-                return render_template("emr_profile.html", error="File không hợp lệ (chỉ nhận .csv, .xls, .xlsx).")
 
-            # Nếu file quá lớn, sinh profile có thể gây crash (502). Xử lý ngoại lệ bộ nhớ.
             try:
                 profile = ProfileReport(df, title="EMR Report", minimal=True)
                 report_path = os.path.join(STATIC_PROFILE_REPORTS, 'report.html')
@@ -108,7 +128,7 @@ def emr_profile():
             except Exception as e:
                 error = f"Lỗi khi sinh báo cáo: {e}"
         except Exception as e:
-            error = f"Lỗi khi phân tích: {e}"
+            error = f"Lỗi khi đọc file dữ liệu: {e}"
 
         return render_template("emr_profile.html", error=error)
 
@@ -118,11 +138,18 @@ def emr_profile():
 def emr_prediction():
     prediction = None
     error = None
+    image_path = None # Khởi tạo biến này để truyền vào template
 
     if request.method == 'POST':
         file = request.files.get('file')
-        if not file:
+        if not file or file.filename == '':
             error = "Vui lòng chọn ảnh."
+            return render_template("emr_prediction.html", prediction=prediction, error=error)
+            
+        filename = secure_filename(file.filename)
+
+        if not allowed_file(filename, ALLOWED_PREDICTION_EXTENSIONS):
+            error = "File không hợp lệ. Vui lòng chọn ảnh định dạng PNG, JPG, hoặc JPEG."
             return render_template("emr_prediction.html", prediction=prediction, error=error)
 
         global model
@@ -135,20 +162,25 @@ def emr_prediction():
             )
             return render_template("emr_prediction.html", prediction=prediction, error=error)
 
-        filename = secure_filename(file.filename)
         filepath = os.path.join(UPLOAD_FOLDER, filename)
         file.save(filepath)
+        
+        # 🚀 CẬP NHẬT: Tạo đường dẫn ảnh để hiển thị trên web
+        image_path = url_for('uploaded_file', filename=filename) 
 
         try:
             img = tf.keras.preprocessing.image.load_img(filepath, target_size=(224, 224))
             img_array = tf.keras.preprocessing.image.img_to_array(img)
             img_array = tf.expand_dims(img_array, axis=0) / 255.0
-            pred = model.predict(img_array)
-            prediction = "Nodule" if pred[0][0] > 0.5 else "Non-Nodule"
+            
+            with tf.compat.v1.get_default_graph().as_default():
+                pred = model.predict(img_array)
+                prediction = "Nodule" if pred[0][0] > 0.5 else "Non-Nodule"
         except Exception as e:
             error = f"Lỗi khi dự đoán: {e}"
 
-    return render_template("emr_prediction.html", prediction=prediction, error=error)
+    # 🚀 CẬP NHẬT: Trả về biến image_path cho template
+    return render_template("emr_prediction.html", prediction=prediction, error=error, image_path=image_path)
 
 if __name__ == '__main__':
     app.run(debug=False, host='0.0.0.0', port=int(os.environ.get("PORT", 5000)))
