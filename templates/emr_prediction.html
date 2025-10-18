@@ -4,7 +4,9 @@
     <meta charset="UTF-8">
     <title>Dự đoán từ hồ sơ EMR</title>
     <style>
-        /* CSS ĐỒNG BỘ - TÔNG XANH LÁ, CĂN GIỮA ỔN ĐỊNH */
+        /* ==========================
+           CSS ĐỒNG BỘ - TÔNG XANH LÁ, GỌN GÀNG
+        =========================== */
         body { 
             font-family: Arial, sans-serif; 
             background: #e8f5e9; /* Nền xanh nhạt */
@@ -14,7 +16,6 @@
         }
         .container { 
             max-width: 700px; 
-            /* CĂN GIỮA THEO CHIỀU NGANG VÀ TẠO KHOẢNG TRỐNG TRÊN/DƯỚI */
             margin: 50px auto; 
             background: #fff; 
             padding: 30px; 
@@ -26,7 +27,8 @@
             text-align: center;
             margin-bottom: 20px; 
         }
-        /* Style cho Form và Button */
+
+        /* Form upload + nút bấm */
         .form-group {
             display: flex;
             align-items: center;
@@ -70,7 +72,7 @@
             background-color: #2e7d32;
         }
 
-        /* Style cho Kết quả và Lỗi */
+        /* Thông báo lỗi / kết quả */
         .message {
             padding: 15px;
             border-radius: 8px;
@@ -83,6 +85,8 @@
             border: 1px solid #d32f2f;
             font-weight: bold;
         }
+
+        /* Khu vực hiển thị kết quả */
         .result-section {
             margin-top: 30px;
             padding: 20px;
@@ -101,6 +105,7 @@
             color: #1b5e20;
             margin: 10px 0;
         }
+
         img {
             max-width: 100%;
             height: auto;
@@ -109,7 +114,7 @@
             margin-top: 15px;
         }
 
-        /* LIÊN HỆ */
+        /* Liên hệ */
         .contact { 
             clear: both;
             margin-top: 40px; 
@@ -130,42 +135,43 @@
     <div class="container">
         <h1>Dự đoán từ hồ sơ EMR</h1>
         
+        <!-- Form upload hình ảnh -->
         <form method="POST" enctype="multipart/form-data">
             <div class="form-group">
                 <input type="file" name="file" accept="image/*" required>
                 <button type="submit" class="btn">Phân tích</button>
-                <!-- Đảm bảo url_for được gọi đúng -->
-                <a href="{{ url_for('dashboard') }}" class="btn-dashboard">Dashboard</a> 
+                <!-- ✅ ĐÃ SỬA: đúng endpoint -->
+                <a href="{{ url_for('dashboard_page') }}" class="btn-dashboard">Dashboard</a> 
             </div>
         </form>
 
-        <!-- Lỗi được hiển thị trước kết quả -->
+        <!-- Hiển thị lỗi -->
         {% if error %}
             <div class="message error">Lỗi: {{ error|safe }}</div>
         {% endif %}
 
-        <!-- Kết quả Dự đoán -->
+        <!-- Hiển thị kết quả dự đoán -->
         {% if prediction %}
             <div class="result-section">
                 <h2>Kết quả dự đoán:</h2>
                 <p>{{ prediction }}</p>
 
-                <!-- Ảnh đã tải lên -->
                 {% if image_path %}
                     <div style="text-align: center;">
                         <h3>Ảnh đã tải lên</h3>
-                        <!-- Đảm bảo image_path là đường dẫn hợp lệ -->
                         <img src="{{ image_path }}" alt="Ảnh đã tải lên">
                     </div>
                 {% endif %}
             </div>
         {% endif %}
         
+        <!-- Thông tin liên hệ -->
         <div class="contact">
             <p><strong>Liên hệ:</strong><br>
                 Công ty TNHH MTV Minh Trí và những người bạn Marie Curie<br>
                 159 Nam Kỳ Khởi Nghĩa, Quận 3, Tp. Hồ Chí Minh<br>
-                Lại Nguyễn Minh Trí - <a href="mailto:laingminhtri@gmail.com">laingminhtri@gmail.com</a> - 0908083566</p>
+                Lại Nguyễn Minh Trí - 
+                <a href="mailto:laingminhtri@gmail.com">laingminhtri@gmail.com</a> - 0908083566</p>
         </div>
     </div>
 </body>
