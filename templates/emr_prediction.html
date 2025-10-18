@@ -4,52 +4,54 @@
   <meta charset="UTF-8">
   <title>Dự đoán từ hồ sơ EMR</title>
   <style>
-    body { font-family: Arial; background: #e8f5e9; padding: 0; margin: 0; }
+    /* CSS ĐỒNG BỘ */
+    body { font-family: Arial, sans-serif; background: #e8f5e9; padding: 0; margin: 0; }
     .container { max-width: 700px; margin: 50px auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
     h1 { color: #2e7d32; }
-    .result { margin-top: 20px; font-size: 18px; color: #1b5e20; }
-    .error { color: red; margin-top: 15px; }
+    h2 { color: #2e7d32; } /* Thêm style cho h2 */
+    .error { color: red; margin-top: 15px; font-weight: bold; }
+    .result { margin-top: 20px; font-size: 18px; color: #1b5e20; font-weight: bold; }
     .contact { margin-top: 30px; font-size: 14px; }
+    /* CSS cho NÚT */
     .btn {
       padding: 10px 20px;
       border: none;
-      border-radius: 5px;
+      border-radius: 8px; /* Dùng 8px để đồng bộ với index.html */
       color: white;
       cursor: pointer;
       font-size: 16px;
-      margin-top: 15px; /* Giữ nguyên hoặc điều chỉnh margin */
-      display: inline-block; /* Quan trọng để nút Phân tích hiển thị tốt */
-      line-height: 1.5; /* Giúp nút có chiều cao hợp lý */
+      margin-top: 15px;
+      display: inline-block;
+      line-height: 1.5;
+      background-color: #2e7d32; /* Nút chính */
     }
-    .btn-green {
-      background-color: #2e7d32;
-    }
+    .btn:hover { background: #1b5e20; }
     .btn-dashboard {
-      background-color: #388e3c;
+      background-color: #388e3c; /* Màu xanh lá đậm hơn */
       margin-left: 10px;
       text-decoration: none;
       display: inline-block;
-      line-height: 38px; /* Giúp căn chỉnh với nút "Phân tích" */
+      line-height: 38px;
+      padding: 0 20px; /* Cần padding ngang vì đã dùng line-height */
     }
-    /* Thêm style cho input file để căn chỉnh nút "Phân tích" */
-    .form-group {
-        display: flex;
-        align-items: center;
-        gap: 10px; /* Khoảng cách giữa các phần tử */
-    }
+    .form-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 10px; /* Thêm margin trên cho form */
+    }
   </style>
 </head>
 <body>
   <div class="container">
     <h1>Dự đoán từ hồ sơ EMR</h1>
+    
     <form method="POST" enctype="multipart/form-data">
-        <div class="form-group">
-            <input type="file" name="file" accept="image/*" required>
-            
-            <button type="submit" class="btn btn-green">Phân tích</button>
-            
-                        <a href="/dashboard" class="btn-dashboard">Quay lại Dashboard</a>
-        </div>
+        <div class="form-group">
+            <input type="file" name="file" accept="image/*" required>
+            <button type="submit" class="btn">Phân tích</button>
+            <a href="/dashboard" class="btn-dashboard">Quay lại Dashboard</a>
+        </div>
     </form>
     
     {% if prediction %}
@@ -58,14 +60,15 @@
         <p>{{ prediction }}</p>
       </div>
       {% if image_path %}
-        <div style="margin-top:20px;">
-          <img src="{{ image_path }}" alt="Ảnh đã tải lên" style="max-width:100%;">
+        <div style="margin-top:20px; text-align: center;">
+          <h3>Ảnh đã tải lên</h3>
+          <img src="{{ image_path }}" alt="Ảnh đã tải lên" style="max-width:100%; border: 1px solid #ccc; border-radius: 5px;">
         </div>
       {% endif %}
     {% endif %}
     
     {% if error %}
-      <div class="error">{{ error|safe }}</div>
+      <div class="error">Lỗi: {{ error|safe }}</div>
     {% endif %}
     
     <div class="contact">
@@ -73,6 +76,6 @@
          Công ty TNHH MTV Minh Trí và những người bạn Marie Curie<br>
          <a href="mailto:laingminhtri@gmail.com">laingminhtri@gmail.com</a></p>
     </div>
-      </div>
+  </div>
 </body>
 </html>
