@@ -29,18 +29,22 @@
         <div class="form-group">
             <input type="file" name="image" accept="image/*" required>
             <button type="submit" class="btn">Phân tích</button>
-            <a href="{{ url_for('dashboard') }}" class="btn-dashboard"> Quay lại Dashboard</a>
+            <a href="{{ url_for('dashboard') }}" class="btn-dashboard">Quay lại Dashboard</a>
         </div>
     </form>
 
-    {% if error %}
-        <div class="error">{{ error }}</div>
-    {% endif %}
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="error">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
 
-    {% if result %}
+    {% if result is defined and result is not none %}
         <div class="result-section">
             <h2>Kết quả dự đoán:</h2>
-            <div style="font-size: 16px;">{{ result | safe }}</div>
+            <div style="font-size: 16px;">{{ result }}</div>
 
             {% if image_name %}
                 <div style="text-align:center;">
