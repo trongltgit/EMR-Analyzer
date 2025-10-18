@@ -118,6 +118,10 @@ def upload_emr():
         flash('Chưa chọn file hợp lệ.', 'warning')
         return redirect(url_for('emr_profile'))
 
+    if not allowed_file(file.filename):
+        flash('File không hợp lệ. Chỉ chấp nhận CSV, XLSX, XLS.', 'danger')
+        return redirect(url_for('emr_profile'))
+
     filepath = os.path.join(app.config['UPLOAD_FOLDER'], secure_filename(file.filename))
     file.save(filepath)
 
@@ -156,6 +160,10 @@ def upload_image():
     file = request.files['image']
     if file.filename == '':
         flash('Chưa chọn ảnh hợp lệ.', 'warning')
+        return redirect(url_for('emr_prediction'))
+
+    if not allowed_file(file.filename):
+        flash('Chỉ chấp nhận ảnh JPG/PNG.', 'danger')
         return redirect(url_for('emr_prediction'))
 
     if not model:
