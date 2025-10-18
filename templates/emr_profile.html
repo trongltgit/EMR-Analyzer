@@ -121,6 +121,7 @@
         <form method="POST" enctype="multipart/form-data">
             <input type="file" name="file" accept=".csv, .xlsx, .xls" required>
             <button type="submit">Phân tích</button>
+            <a href="{{ url_for('dashboard_page') }}" class="btn-dashboard"> Quay lại Dashboard</a>
         </form>
 
         {% if error %}
@@ -134,7 +135,7 @@
             </div>
         {% endif %}
         
-        <a href="/dashboard" class="btn-back">Quay lại Dashboard</a>
+       
 
         <div class="contact">
             <p><strong>Liên hệ:</strong><br>
@@ -145,3 +146,4 @@
     </div>
 </body>
 </html>
+
