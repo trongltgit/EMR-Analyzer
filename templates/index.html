@@ -55,7 +55,7 @@
     <p>Số hóa hồ sơ bệnh án là xu hướng tất yếu trong hiện đại hóa y tế. Hệ thống sử dụng LSTM - một mô hình trí tuệ nhân tạo tiên tiến để hỗ trợ bác sĩ phân tích bệnh án, xét nghiệm, hình ảnh y khoa và dự đoán bệnh tiềm ẩn.</p>
 
     <h2>Đăng nhập hệ thống</h2>
-    <form id="loginForm">
+    <form id="loginForm" method="POST" action="{{ url_for('login') }}">
       <label for="userID" placeholder="Tên đăng nhập">ID người dùng:</label>
       <input type="text" id="userID" required>
 
