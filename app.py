@@ -56,7 +56,7 @@ if MODEL_PATH:
 
 
 # =============================
-# Route: Trang chủ (đăng nhập)
+# Trang chủ (đăng nhập)
 # =============================
 @app.route('/')
 def index():
@@ -71,20 +71,23 @@ def login():
     username = request.form.get('username')
     password = request.form.get('password')
 
+    # Tài khoản mẫu
     if username == 'user_demo' and password == 'Test@123456':
         session['logged_in'] = True
+        flash('Đăng nhập thành công!', 'success')
         return redirect(url_for('dashboard'))
     else:
-        flash('Sai tài khoản hoặc mật khẩu!')
+        flash('Sai tài khoản hoặc mật khẩu!', 'danger')
         return redirect(url_for('index'))
 
 
 # =============================
-# Dashboard sau khi đăng nhập
+# Dashboard
 # =============================
 @app.route('/dashboard')
 def dashboard():
     if not session.get('logged_in'):
+        flash('Vui lòng đăng nhập để truy cập Dashboard.', 'warning')
         return redirect(url_for('index'))
     return render_template('dashboard.html')
 
@@ -95,6 +98,7 @@ def dashboard():
 @app.route('/emr_profile')
 def emr_profile():
     if not session.get('logged_in'):
+        flash('Bạn cần đăng nhập trước khi truy cập trang này.', 'warning')
         return redirect(url_for('index'))
     return render_template('emr_profile.html')
 
@@ -108,26 +112,26 @@ def upload_emr():
         return redirect(url_for('index'))
 
     if 'file' not in request.files:
-        flash('Không có file nào được tải lên.')
+        flash('Không có file nào được tải lên.', 'warning')
         return redirect(url_for('emr_profile'))
 
     file = request.files['file']
     if file.filename == '':
-        flash('Chưa chọn file hợp lệ.')
+        flash('Chưa chọn file hợp lệ.', 'warning')
         return redirect(url_for('emr_profile'))
 
     filepath = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
     file.save(filepath)
 
-    # Giả lập phân tích hồ sơ EMR (Excel/CSV)
+    # Phân tích file EMR
     try:
         import pandas as pd
         df = pd.read_csv(filepath) if file.filename.endswith('.csv') else pd.read_excel(filepath)
         summary = df.describe(include='all').to_html(classes='table table-bordered table-sm')
-        flash('✅ Phân tích hồ sơ EMR thành công!')
+        flash('✅ Phân tích hồ sơ EMR thành công!', 'success')
     except Exception as e:
         summary = f"Lỗi khi đọc file: {e}"
-        flash('❌ Lỗi khi phân tích hồ sơ.')
+        flash('❌ Lỗi khi phân tích hồ sơ.', 'danger')
 
     return render_template('emr_profile.html', summary=summary, filename=file.filename)
 
@@ -138,12 +142,13 @@ def upload_emr():
 @app.route('/emr_prediction')
 def emr_prediction():
     if not session.get('logged_in'):
+        flash('Bạn cần đăng nhập trước khi truy cập trang này.', 'warning')
         return redirect(url_for('index'))
     return render_template('emr_prediction.html')
 
 
 # =============================
-# Upload ảnh y tế và dự đoán
+# Upload ảnh y tế & dự đoán
 # =============================
 @app.route('/upload_image', methods=['POST'])
 def upload_image():
@@ -151,18 +156,18 @@ def upload_image():
         return redirect(url_for('index'))
 
     if 'image' not in request.files:
-        flash('Không có ảnh nào được tải lên.')
+        flash('Không có ảnh nào được tải lên.', 'warning')
         return redirect(url_for('emr_prediction'))
 
     file = request.files['image']
     if file.filename == '':
-        flash('Chưa chọn ảnh hợp lệ.')
+        flash('Chưa chọn ảnh hợp lệ.', 'warning')
         return redirect(url_for('emr_prediction'))
 
     filepath = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
     file.save(filepath)
 
-    # Xử lý ảnh và dự đoán bằng model
+    # Dự đoán
     try:
         img = Image.open(filepath).convert('RGB').resize((224, 224))
         arr = np.array(img) / 255.0
@@ -181,7 +186,7 @@ def upload_image():
 
 
 # =============================
-# Route trả file đã upload
+# Trả file upload
 # =============================
 @app.route('/uploads/<filename>')
 def uploaded_file(filename):
@@ -194,11 +199,12 @@ def uploaded_file(filename):
 @app.route('/logout')
 def logout():
     session.clear()
+    flash('Bạn đã đăng xuất.', 'info')
     return redirect(url_for('index'))
 
 
 # =============================
-# Chạy ứng dụng
+# Chạy app
 # =============================
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
